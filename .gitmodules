@@ -1,0 +1,3 @@
+[submodule "old_approaches/STFAN"]
+	path = old_approaches/STFAN
+	url = https://github.com/sushlokshah/STFAN.git
