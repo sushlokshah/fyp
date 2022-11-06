@@ -1,3 +1,6 @@
 [submodule "old_approaches/STFAN"]
 	path = old_approaches/STFAN
 	url = https://github.com/sushlokshah/STFAN.git
+[submodule "old_approaches/p2pvg"]
+	path = old_approaches/p2pvg
+	url = https://github.com/sushlokshah/p2pvg.git
