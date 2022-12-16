@@ -10,7 +10,7 @@ import torch.optim as optim
 import os
 import torch.utils.data
 
-from resnet import ResnetBlock
+from models.resnet import ResnetBlock
 
 
 # feature extractor model

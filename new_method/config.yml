@@ -1,5 +1,5 @@
 # basic inforamtion about experiment
-config: new_method/config.yml
+config: C:\Users\Machine Learning GPU\Desktop\fyp\fyp\new_method\config.yml
 name: deblurring
 
 #update and display frequency
@@ -9,15 +9,14 @@ eval_step_freq: 10
 
 #about training and testing
 evaluate: false
-sweep: true
+sweep: false
 test: false
-train: false
+train: true
 
 # data path
 dataset: gopro
-data_root_train: /home/sushlok/new_approach/datasets/carla(copy)
-seq_len_train: [5,20]
-rate_train: [1, 20]
+data_root_train: C:\Users\Machine Learning GPU\Desktop\GOPRO_Large_all(2)
+seq_len_train: [5, 20]
 
 training_augmentations:
   resize: [256, 256]
@@ -28,19 +27,16 @@ training_augmentations:
   # random_perspective: [0.1, 0.1, 0.1, 0.1]
   # random_erasing: [0.5, 0.5, 0.5, 0.5, 0.5]
 
-
-data_root_test: /home/sushlok/new_approach/datasets/carla(copy)
-seq_len_test: [5,20]
-rate_test: [1, 20]
+data_root_test: C:\Users\Machine Learning GPU\Desktop\GOPRO_Large_all(2)
+seq_len_test: [5, 20]
 
 test_augmentations:
-  resize: [256,256]
+  resize: [256, 256]
 
+# if resume
+weights: None
 
-# if resume 
-weights: new_method/checkpoints/gmflownet-carla.pth 
-
-checkpoint_dir: new_method/checkpoints
+checkpoint_dir: C:\Users\Machine Learning GPU\Desktop\fyp\fyp\new_method\checkpoint
 
 # data to tensorboard
 update_sweep_data: false
@@ -48,13 +44,12 @@ update_training_loss: true
 update_validation_loss: true
 update_weights: true
 
-
 # if visualize
 visualize: false
-visualization_path: /home/sushlok/new_approach/visualization
+visualization_path: C:\Users\Machine Learning GPU\Desktop\fyp\fyp\new_method\visualization
 
 #optimizer and optimizer specific parameters
-optimizer: 
+optimizer:
   optimizer_name: AdamW
   weight_decay: 0.0001
   eps: 1e-08
@@ -102,39 +97,23 @@ training_parameters:
   lr: 0.0005
   batch_size: 2
   num_epochs: 10
-  dropout: 0.1
-  iterations: 1
-  flow_weighting_factor_gamma: 0.8
-  clip_grad_norm: 1.0
+  prob_for_frame_drop: 0.2
 
 # hyperparameters for testing
 testing_parameters:
   batch_size: 1
-  iterations: 1
-  flow_weighting_factor_gamma: 0.1
-  clip_grad_norm: 1.0
-
-# augmentations list
 
 num_workers: 4
 
+# model parameters
+model:
+  encoder:
+    output_channels: 128
 
-# # data path
-# dataset: carla
-# data_root: /home/sushlok/new_approach/datasets/carla(copy)
-# training_seq: ["CloudyNoon"]
-# training_setup: ["camera_0","camera_1","camera_2"]
-#   # ,"camera_2"  ,"camera_8", "camera_-1" , "camera_-3" , "camera_-9" , "camera_1" , "camera_3" , "camera_9" , "camera_-10" , "camera_-4", "camera_10" , "camera_-5", "camera_-11" , "camera_5"]
+  positional:
+    output_channels: 16
 
-# data_root_test: /home/sushlok/new_approach/datasets/carla(copy)
-# test_seq: ["CloudyNoon"]
-# test_setup: ["camera_0" ,"camera_1" , "camera_2"]
-# #  ,"camera_8", "camera_-1" , "camera_-3" , "camera_-9" , "camera_1" , "camera_3" , "camera_9" , "camera_-10" , "camera_-4", "camera_10" , "camera_-5", "camera_-11" , "camera_5"]
-
-
-# model specific parameters
-use_mix_attn: false 
-alternate_corr: false
-mixed_precision: false
-
-# loss parameter
+  latent:
+    num_layers: 16
+    output_channels: 256
+    hidden_size: 256

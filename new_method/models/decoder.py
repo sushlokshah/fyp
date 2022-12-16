@@ -10,7 +10,7 @@ import torch.optim as optim
 import os
 import torch.utils.data
 
-from resnet import ResnetBlock
+from models.resnet import ResnetBlock
 
 class conv_decoder(nn.Module):
     def __init__(self,nin, nout) -> None:
