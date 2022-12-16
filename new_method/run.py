@@ -138,8 +138,8 @@ from new_method.utils.utils import generation_viz
 
 ######################################################################
 # loading model directory
-from  core.gmflownet_model import GMFlowNetModel
-import datasets.dataloader.datasets as datasets
+# from  core.gmflownet_model import GMFlowNetModel
+# import datasets.dataloader as datasets
 
 def train(model,args):
     model.train()
