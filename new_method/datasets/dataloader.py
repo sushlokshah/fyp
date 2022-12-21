@@ -90,20 +90,15 @@ class Gopro(Dataset):
         
         if(idx + self.max_seq_len >= self.seq_lens[seq]):
             idx = self.seq_lens[seq] - self.max_seq_len - 1
-            
+        
+        blurry_image = 0    
         for i in range(self.max_seq_len):
             # read image from path
             img_path = self.raw_data[seq][idx + i]
             img = Image.open(img_path)
-            
+            blurry_image = blurry_image + np.asarray(img)/(self.max_seq_len)
             self.image_list.append(self.transform(img).unsqueeze(0))
-         
-        # create corresponding blurr image
-        blurry_image = 0
-        for i in range(self.max_seq_len):
-            img_path = self.raw_data[seq][idx + i]
-            blurry_image = blurry_image + np.asarray(Image.open(img_path))/(self.max_seq_len)
-        # blurry_image = blurry_image
+    
         self.blurry_image = Image.fromarray(np.uint8(blurry_image))
         
         # Pack data
@@ -142,7 +137,7 @@ def get_transform(args,mode):
         
         augmentation.append(transforms.ToTensor())
         augmentation.append(transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)))
-        print(augmentation)
+        # print(augmentation)
         
         # return transform
         transform = transforms.Compose(augmentation)
@@ -156,7 +151,7 @@ def get_transform(args,mode):
         
         augmentation.append(transforms.ToTensor())
         augmentation.append(transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)))
-        print(augmentation)
+        # print(augmentation)
         
         # return transform
         transform = transforms.Compose(augmentation)

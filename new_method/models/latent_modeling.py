@@ -11,6 +11,7 @@ import os
 import torch.utils.data
 from torch.autograd import Variable
 
+
 class lstm(nn.Module):
     def __init__(self, input_size, output_size, hidden_size, n_layers, batch_size):
         super(lstm, self).__init__()
@@ -20,12 +21,13 @@ class lstm(nn.Module):
         self.batch_size = batch_size
         self.n_layers = n_layers
         self.embed = nn.Linear(input_size, hidden_size)
-        self.lstm = nn.ModuleList([nn.LSTMCell(hidden_size, hidden_size) for i in range(self.n_layers)])
+        self.lstm = nn.ModuleList(
+            [nn.LSTMCell(hidden_size, hidden_size) for i in range(self.n_layers)])
         self.output = nn.Sequential(
-                nn.Linear(hidden_size, output_size),
-                #nn.BatchNorm1d(output_size),
-                nn.Tanh())
-        #self.hidden = self.init_hidden()
+            nn.Linear(hidden_size, output_size),
+            # nn.BatchNorm1d(output_size),
+            nn.Tanh())
+        # self.hidden = self.init_hidden()
 
     def init_hidden(self, batch_size=1):
         hidden = []
@@ -41,7 +43,7 @@ class lstm(nn.Module):
             hidden.append((Variable(torch.zeros(batch_size, self.hidden_size).cuda()),
                            Variable(torch.zeros(batch_size, self.hidden_size).cuda())))
         self.hidden = hidden
-        #return hidden
+        # return hidden
 
     def forward(self, input):
         embedded = self.embed(input.view(-1, self.input_size))
@@ -52,6 +54,7 @@ class lstm(nn.Module):
 
         return self.output(h_in)
 
+
 class gaussian_lstm(nn.Module):
     def __init__(self, input_size, output_size, hidden_size, n_layers, batch_size):
         super(gaussian_lstm, self).__init__()
@@ -61,7 +64,8 @@ class gaussian_lstm(nn.Module):
         self.n_layers = n_layers
         self.batch_size = batch_size
         self.embed = nn.Linear(input_size, hidden_size)
-        self.lstm = nn.ModuleList([nn.LSTMCell(hidden_size, hidden_size) for i in range(self.n_layers)])
+        self.lstm = nn.ModuleList(
+            [nn.LSTMCell(hidden_size, hidden_size) for i in range(self.n_layers)])
         self.mu_net = nn.Linear(hidden_size, output_size)
         self.logvar_net = nn.Linear(hidden_size, output_size)
         self.hidden = self.init_hidden()
@@ -80,18 +84,18 @@ class gaussian_lstm(nn.Module):
             hidden.append((Variable(torch.zeros(self.batch_size, self.hidden_size).cuda()),
                            Variable(torch.zeros(self.batch_size, self.hidden_size).cuda())))
         self.hidden = hidden
-        #return hidden
+        # return hidden
 
     def reparameterize(self, mu, logvar):
         logvar = logvar.mul(0.5).exp_()
         eps = Variable(logvar.data.new(logvar.size()).normal_())
-        #return eps.add_(mu)
-        #return eps.mul(logvar)
+        # return eps.add_(mu)
+        # return eps.mul(logvar)
         return eps.mul(logvar).add_(mu)
 
     def forward(self, input):
-        #import pdb
-        #pdb.set_trace()
+        # import pdb
+        # pdb.set_trace()
         embedded = self.embed(input.view(-1, self.input_size))
         h_in = embedded
         for i in range(self.n_layers):

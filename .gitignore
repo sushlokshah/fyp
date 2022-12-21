@@ -2,3 +2,8 @@ dataset/
 old_approaches/STAFAN/data/
 old_approaches/STAFAN/output/
 ckpt/
+papers/
+new_method/checkpoints/
+new_method/runs/
+runs/
+papers/
