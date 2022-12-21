@@ -1,5 +1,9 @@
 from __future__ import print_function, division
+<<<<<<< HEAD
 from datasets.dataloader import Gopro, get_transform
+=======
+from datasets.dataloader import Gopro
+>>>>>>> bf491fb7bbe184bbce15c85ff2fc34a104cfcaba
 from models.variational_gen import Variational_Gen
 from utils.loss import PSNR, SSIM, KLCriterion, SmoothMSE
 from ray import tune
@@ -162,11 +166,15 @@ class TensorboardWriter(object):
 
 ######################################################################
 # loading model directory
+<<<<<<< HEAD
 torch.autograd.set_detect_anomaly(True)
+=======
+>>>>>>> bf491fb7bbe184bbce15c85ff2fc34a104cfcaba
 
 
 def train(model, args):
     model.train()
+<<<<<<< HEAD
     print('loading data...')
     transform = get_transform(args, 'train')
     print('training augmentations: ', transform)
@@ -204,6 +212,54 @@ def train(model, args):
             # model.update_model_without_prior()
             # model.update_prior()
     #
+=======
+    print('training data sequences')
+    print("training_sequences: ", args.training_seq)
+
+    # aug_params = {'crop_size': args.training_augmentations['RandomCrop']
+    #               ['size'], 'min_scale': -0.2, 'max_scale': 0.4, 'do_flip': False}
+    # train_dataset = datasets.Carla_Dataset(
+    #     aug_params, split='training', root=args.data_root, seq=args.training_seq, setup_type=args.training_setup)
+    # train_loader = torch.utils.data.DataLoader(
+    #     train_dataset, batch_size=args.training_parameters['batch_size'], shuffle=True, num_workers=args.num_workers, pin_memory=True, drop_last=True)
+    # print(len(train_dataset))
+    # # load optimizer and scheduler
+    # optimizer, scheduler = fetch_optimizer(args, model, args.training_parameters['lr'], len(
+    #     train_loader), args.training_parameters['num_epochs'])
+    # scaler = GradScaler(enabled=args.mixed_precision)
+    # writer = TensorboardWriter(args, scheduler, model)
+    # # training loop
+    # for epoch in range(args.training_parameters['num_epochs']):
+    #     for i, data in enumerate(train_loader):
+    #         # data
+    #         optimizer.zero_grad()
+    #         image1, image2, flow, valid = [x.cuda() for x in data]
+    #         # forward pass
+    #         flow_pred = model(image1, image2)
+    #         # loss
+    #         loss, metric = sequence_loss(flow_pred, image1, image2, flow, valid,
+    #                                      gamma=args.training_parameters['flow_weighting_factor_gamma'], use_matching_loss=args.use_mix_attn)
+    #         if scheduler != None:
+    #             optimizer.zero_grad()
+    #             scaler.scale(loss).backward()
+    #             scaler.unscale_(optimizer)
+    #             torch.nn.utils.clip_grad_norm_(
+    #                 model.parameters(), args.training_parameters['clip_grad_norm'])
+    #             scaler.step(optimizer)
+    #             scheduler.step()
+    #             scaler.update()
+    #             if i % args.display_step_freq == 0:
+    #                 print('Epoch: [{}/{}], Step: [{}/{}], lr: {:.8f}, Loss: {:.8f}, epe:{:.8f}, 1px: {:.8f}, 3px: {:.8f},5px: {:.8f}'.format(
+    #                     epoch+1, args.training_parameters['num_epochs'], i+1, len(train_loader), scheduler.get_last_lr()[0], loss.item(), metric['epe'], metric['1px'], metric['3px'], metric['5px']))
+    #         else:
+    #             optimizer.zero_grad()
+    #             scaler.scale(loss).backward()
+    #             scaler.unscale_(optimizer)
+    #             scaler.step(optimizer)
+    #             torch.nn.utils.clip_grad_norm_(
+    #                 model.parameters(), args.training_parameters['clip_grad_norm'])
+    #             scaler.update()
+>>>>>>> bf491fb7bbe184bbce15c85ff2fc34a104cfcaba
     #             if i % args.display_step_freq == 0:
     #                 print('Epoch: [{}/{}], Step: [{}/{}], lr: {:.8f}, Loss: {:.8f}, epe:{:.8f}, 1px: {:.8f}, 3px: {:.8f},5px: {:.8f}'.format(epoch+1, args.training_parameters['num_epochs'],
     #                       i+1, len(train_loader), args.training_parameters['lr'], loss.item(), metric['epe'], metric['1px'], metric['3px'], metric['5px']))
@@ -372,8 +428,18 @@ def evaluate(model, args):
 
 def run(args):
     print(args)
+<<<<<<< HEAD
     model = Variational_Gen(args)
 
+=======
+    model = nn.DataParallel(Variational_Gen(args), device_ids=args.gpus)
+    # save initial model
+    # torch.save(model.state_dict(), 'test.pth')
+    # print("model saved")
+    if args.weights is not None:
+        model.load_state_dict(torch.load(args.weights), strict=True)
+        print("all keys matched")
+>>>>>>> bf491fb7bbe184bbce15c85ff2fc34a104cfcaba
     model.cuda()
     if args.weights:
         model.load(args.weights)
@@ -616,7 +682,11 @@ if __name__ == '__main__':
     # about experiment
     parser.add_argument('--config', default=r'C:\Users\Machine Learning GPU\Desktop\fyp\fyp\new_method\config.yml',
                         help="config file", required=False)
+<<<<<<< HEAD
     parser.add_argument('--name',
+=======
+    parser.add_argument('--name', default='gmflownet',
+>>>>>>> bf491fb7bbe184bbce15c85ff2fc34a104cfcaba
                         help="name of the experiment", required=False)
 
     # about training and testing
@@ -702,10 +772,17 @@ if __name__ == '__main__':
     # with open(args.config, 'w') as outfile:
     #     yaml.dump(vars(args), outfile, default_flow_style=False)
 
+<<<<<<< HEAD
     if not os.path.exists(args.checkpoint_dir):
         os.mkdir(args.checkpoint_dir)
     if not os.path.exists(args.run_dir):
         os.mkdir(args.run_dir)
+=======
+    if not os.path.exists('checkpoints'):
+        os.mkdir('checkpoints')
+    if not os.path.exists('runs'):
+        os.mkdir('runs')
+>>>>>>> bf491fb7bbe184bbce15c85ff2fc34a104cfcaba
 
     # set the gpus
     args.gpus = [i for i in range(len(args.gpus))]

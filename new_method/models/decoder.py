@@ -11,7 +11,10 @@ import os
 import torch.utils.data
 
 from models.resnet import ResnetBlock
+<<<<<<< HEAD
 
+=======
+>>>>>>> bf491fb7bbe184bbce15c85ff2fc34a104cfcaba
 
 class conv_decoder(nn.Module):
     def __init__(self, nin, nout) -> None:
