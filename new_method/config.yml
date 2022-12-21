@@ -16,7 +16,11 @@ train: true
 # data path
 dataset: gopro
 data_root_train: C:\Users\Machine Learning GPU\Desktop\GOPRO_Large_all(2)
+<<<<<<< HEAD
 seq_len_train: [5, 8]
+=======
+seq_len_train: [5, 20]
+>>>>>>> bf491fb7bbe184bbce15c85ff2fc34a104cfcaba
 
 training_augmentations:
   resize: [256, 256]
@@ -34,11 +38,18 @@ test_augmentations:
   resize: [256, 256]
 
 # if resume
+<<<<<<< HEAD
 weights:
 #  C:\Users\Machine Learning GPU\Desktop\fyp\fyp\new_method\checkpoints\deblurring_initial.pth
 
 checkpoint_dir: C:\Users\Machine Learning GPU\Desktop\fyp\fyp\new_method\checkpoints\
 run_dir: C:\Users\Machine Learning GPU\Desktop\fyp\fyp\new_method\runs\
+=======
+weights: None
+
+checkpoint_dir: C:\Users\Machine Learning GPU\Desktop\fyp\fyp\new_method\checkpoint
+
+>>>>>>> bf491fb7bbe184bbce15c85ff2fc34a104cfcaba
 # data to tensorboard
 update_sweep_data: false
 update_training_loss: true
