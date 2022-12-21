@@ -13,14 +13,8 @@ import torch.utils.data
 
 class Corr_Encoder(nn.Module):
     def __init__(self) -> None:
-<<<<<<< HEAD
         super(Corr_Encoder, self).__init__()
         self.softmax = nn.Softmax(dim=0)
-=======
-        super(Corr_Encoder,self).__init__()
-        self.softmax = nn.Softmax(dim = 0)
->>>>>>> bf491fb7bbe184bbce15c85ff2fc34a104cfcaba
-
     def forward(self, features):
         N, D, H, W = features.shape
         print(features.shape)

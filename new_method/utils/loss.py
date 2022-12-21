@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-import pytorch_ssim
+# import pytorch_ssim
 
 class KLCriterion(nn.Module):
     def __init__(self):

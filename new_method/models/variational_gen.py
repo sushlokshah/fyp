@@ -15,14 +15,8 @@ from models.latent_modeling import lstm, gaussian_lstm
 from models.positional_encoding import Positional_encoding
 from utils.loss import KLCriterion, PSNR, SSIM, SmoothMSE
 
-<<<<<<< HEAD
-
 class Variational_Gen(nn.Module):
     def __init__(self, args, batch_size=2, prob_for_frame_drop=0, lr=0.001):
-=======
-class Variational_Gen(nn.Module):
-    def __init__(self, args,batch_size=2,prob_for_frame_drop = 0):
->>>>>>> bf491fb7bbe184bbce15c85ff2fc34a104cfcaba
         super(Variational_Gen, self).__init__()
         self.args = args
         if args.train or args.evaluate:
@@ -32,22 +26,15 @@ class Variational_Gen(nn.Module):
         else:
             self.batch_size = batch_size
         # sharp image encoder for both prior and posterior
-<<<<<<< HEAD
         self.encoder = encoder(
             self.args.model["encoder"]['output_channels'], 3, resblocks=False)
         self.decoder = decoder(
             self.args.model["encoder"]['output_channels'], 3, resblocks=False)
 
-=======
-        self.encoder = encoder(self.args.model["encoder"]['output_channels'], 3,resblocks=True)
-        self.decoder = decoder(self.args.model["encoder"]['output_channels'], 3, resblocks=True)
-        
->>>>>>> bf491fb7bbe184bbce15c85ff2fc34a104cfcaba
         # motion encoder for posterior
         self.motion_encoder = Corr_Encoder()
 
         # latent modeling
-<<<<<<< HEAD
         self.prior_lstm = gaussian_lstm(self.args.model["encoder"]['output_channels'] + self.args.model["positional"]['output_channels'] + 4*4*4*4,
                                         self.args.model["latent"]['output_channels'], self.args.model["latent"]['hidden_size'], self.args.model["latent"]['num_layers'], self.batch_size)
         self.posterior_lstm = gaussian_lstm(self.args.model["encoder"]['output_channels'] + self.args.model["positional"]['output_channels'] + 4*4*4*4,
@@ -70,22 +57,7 @@ class Variational_Gen(nn.Module):
                 self.lr = lr
             if args.optimizer["optimizer_name"] == "AdamW":
                 self.optimizer = optim.AdamW
-
-=======
-        self.prior_lstm = gaussian_lstm(self.args.model["encoder"]['output_channels'] + self.args.model["positional"]['output_channels'] + 8*8*8*8, self.args.model["latent"]['output_channels'],self.args.model["latent"]['hidden_size'], self.args.model["latent"]['num_layers'], self.batch_size)
-        self.posterior_lstm = gaussian_lstm(self.args.model["encoder"]['output_channels'] + self.args.model["positional"]['output_channels'] + 8*8*8*8, self.args.model["latent"]['output_channels'],self.args.model["latent"]['hidden_size'], self.args.model["latent"]['num_layers'], self.batch_size)
-        
-        self.decoder_lstm = lstm(self.args.model["latent"]['output_channels'], self.args.model["encoder"]['output_channels'], self.args.model["latent"]['hidden_size'], self.args.model["latent"]['num_layers'], self.batch_size)
-        
-        # positional encoding
-        self.pos_encoder = Positional_encoding(self.args.model["positional"]['output_channels'])
-        
-        if args.test != True:
-            if args.train or args.evaluate:
-                self.prob_for_frame_drop = args.training_parameters["prob_for_frame_drop"]
-            else:
-                self.prob_for_frame_drop = prob_for_frame_drop
->>>>>>> bf491fb7bbe184bbce15c85ff2fc34a104cfcaba
+                
         else:
             self.prob_for_frame_drop = 0
 
@@ -96,7 +68,6 @@ class Variational_Gen(nn.Module):
         self.ssim = nn.MSELoss()
         self.align_criterion = KLCriterion()
 
-<<<<<<< HEAD
         if args.test != True:
             self.init_optimizer()
 
@@ -125,9 +96,6 @@ class Variational_Gen(nn.Module):
             batch_size=self.batch_size)
 
     def forward(self, sharp_images, motion_blur_image, mode):
-=======
-    def forward(self, sharp_images,motion_blur_image, mode):
->>>>>>> bf491fb7bbe184bbce15c85ff2fc34a104cfcaba
         self.init_hidden()
 
         # motion encoding
@@ -154,9 +122,7 @@ class Variational_Gen(nn.Module):
             # encoder
             if frame_use[i]:
                 last_time_stamp = i
-
-                # posterior
-<<<<<<< HEAD
+                
                 sharp_features_encoding, feature_cache = self.encoder(
                     sharp_images[last_time_stamp])
                 time_info = self.pos_encoder(
@@ -186,30 +152,11 @@ class Variational_Gen(nn.Module):
                         prior_input)
 
                 # decoder
-=======
-                sharp_features_encoding, feature_cache = self.encoder(sharp_images[last_time_stamp])
-                time_info = self.pos_encoder(last_time_stamp,i,len(sharp_images),self.batch_size)
-                posterior_input = torch.cat((sharp_features_encoding,blur_features,time_info),1)
-                
-                #prior
-                if mode != 'test':
-                    target_encoding, target_cache = self.encoder(sharp_images[i])
-                    time_info = self.pos_encoder(i,i,len(sharp_images),self.batch_size)
-                    prior_input = torch.cat((target_encoding,blur_features,time_info),1)
-                
-                z_i_post, mu_i_post, logvar_i_post = self.posterior_lstm(posterior_input)
-                
-                if mode != 'test':
-                    z_i_prior, mu_i_prior, logvar_i_prior = self.prior_lstm(prior_input)
-                
-                #decoder
->>>>>>> bf491fb7bbe184bbce15c85ff2fc34a104cfcaba
                 z_decoder = self.decoder_lstm(z_i_post)
                 print(z_decoder.shape)
                 x_i = self.decoder(z_decoder, feature_cache)
 
                 generated_sequence[i] = x_i
-<<<<<<< HEAD
 
                 if mode != 'test':
                     z_p = self.decoder_lstm(z_i_prior)
@@ -234,40 +181,22 @@ class Variational_Gen(nn.Module):
                         self.last_frame_gen_loss = self.mse_criterion(target_i, sharp_images[i]) + self.psnr(
                             target_i, sharp_images[i]) + self.ssim(target_i, sharp_images[i])
 
-=======
                 
-                if mode != 'test':
-                    z_p = self.decoder_lstm(z_i_prior)
-                    target_i = self.decoder(z_p,target_cache)
-                
-                reconstruction_loss_post = reconstruction_loss_post + self.mse_criterion(x_i, sharp_images[i]) + self.psnr(x_i, sharp_images[i]) + self.ssim(x_i, sharp_images[i])
-                if mode != 'test':
-                    reconstruction_loss_prior = reconstruction_loss_prior + self.mse_criterion(target_i, sharp_images[i]) + self.psnr(target_i, sharp_images[i]) + self.ssim(target_i, sharp_images[i])
-                    alignment_loss = alignment_loss + self.align_criterion(mu_i_post, logvar_i_post, mu_i_prior, logvar_i_prior)
-                    kl_loss_prior = kl_loss_prior + self.kl_criterion(mu_i_prior, logvar_i_prior,0,0)
-                    latent_loss = latent_loss + self.latent_mse(z_decoder,target_encoding)
-                
-                if i == len(sharp_images)-1:
-                    if mode != 'test':
-                        last_frame_gen_loss = self.mse_criterion(target_i, sharp_images[i]) + self.psnr(target_i, sharp_images[i]) + self.ssim(target_i, sharp_images[i])    
-                
->>>>>>> bf491fb7bbe184bbce15c85ff2fc34a104cfcaba
             else:
                 continue
-        # average all losses over the sequence
+       
+         # average all losses over the sequence
         self.reconstruction_loss_post = self.reconstruction_loss_post / \
             (len(sharp_images) - 1)
         self.reconstruction_loss_prior = self.reconstruction_loss_prior / \
             (len(sharp_images) - 1)
         self.alignment_loss = self.alignment_loss / (len(sharp_images) - 1)
         self.kl_loss_prior = self.kl_loss_prior / (len(sharp_images) - 1)
-
+        
         # self.prior_lstm.zero_grad()
         # prior_loss = self.kl_loss_prior + self.reconstruction_loss_prior + self.last_frame_gen_loss
         # prior_loss.ard()
         # self.update_prior()
-<<<<<<< HEAD
-
         # set gradients required to false
         # target_encoding.requires_grad = False
         # mu_i_prior.requires_grad = False
@@ -288,10 +217,6 @@ class Variational_Gen(nn.Module):
 
         if mode != 'test':
             return generated_sequence, self.reconstruction_loss_post, self.alignment_loss, self.latent_loss, self.kl_loss_prior, self.reconstruction_loss_prior, self.last_frame_gen_loss
-=======
-        if mode != 'test':
-            return generated_sequence, reconstruction_loss_post, alignment_loss, latent_loss, kl_loss_prior, reconstruction_loss_prior, last_frame_gen_loss
->>>>>>> bf491fb7bbe184bbce15c85ff2fc34a104cfcaba
         else:
             return generated_sequence, self.reconstruction_loss_post
 
