@@ -61,7 +61,8 @@ class decoder(nn.Module):
         self.resblock51 = ResnetBlock(out_ch, kernel_size=3)  # 128*128*16
 
         self.deconv6 = conv_decoder(2*out_ch, output_channels)
-        self.resblock61 = ResnetBlock(output_channels, kernel_size=3)  # 256*256*3
+        self.resblock61 = ResnetBlock(
+            output_channels, kernel_size=3)  # 256*256*3
 
         # self.convT2 = nn.ConvTranspose2d(
         #     2*out_ch, output_channels, 3, 1, 1)  # 256*256*3
@@ -88,12 +89,12 @@ class decoder(nn.Module):
 
         else:
             encoding = encoding.unsqueeze(2).unsqueeze(3)
-            d0 = self.convT1(encoding) # 4*4*128
-            d1 = self.deconv1(torch.cat((d0, catche[5]), dim=1)) # 8*8*128
-            d2 = self.deconv2(torch.cat((d1, catche[4]), dim=1)) # 16*16*64
-            d3 = self.deconv3(torch.cat((d2, catche[3]), dim=1)) # 32*32*64
-            d4 = self.deconv4(torch.cat((d3, catche[2]), dim=1)) # 64*64*32
-            d5 = self.deconv5(torch.cat((d4, catche[1]), dim=1)) # 128*128*16
+            d0 = self.convT1(encoding)  # 4*4*128
+            d1 = self.deconv1(torch.cat((d0, catche[5]), dim=1))  # 8*8*128
+            d2 = self.deconv2(torch.cat((d1, catche[4]), dim=1))  # 16*16*64
+            d3 = self.deconv3(torch.cat((d2, catche[3]), dim=1))  # 32*32*64
+            d4 = self.deconv4(torch.cat((d3, catche[2]), dim=1))  # 64*64*32
+            d5 = self.deconv5(torch.cat((d4, catche[1]), dim=1))  # 128*128*16
             d6 = self.deconv6(torch.cat((d5, catche[0]), dim=1))
-            
+
         return d6

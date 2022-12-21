@@ -373,7 +373,6 @@ def evaluate(model, args):
 def run(args):
     print(args)
     model = Variational_Gen(args)
-
     model.cuda()
     if args.weights:
         model.load(args.weights)
@@ -616,7 +615,7 @@ if __name__ == '__main__':
     # about experiment
     parser.add_argument('--config', default=r'C:\Users\Machine Learning GPU\Desktop\fyp\fyp\new_method\config.yml',
                         help="config file", required=False)
-    parser.add_argument('--name',
+    parser.add_argument('--name', default='gmflownet',
                         help="name of the experiment", required=False)
 
     # about training and testing
