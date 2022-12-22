@@ -3,7 +3,7 @@ config: C:\Users\Machine Learning GPU\Desktop\fyp\fyp\new_method\config.yml
 name: deblurring
 
 #update and display frequency
-display_step_freq: 10
+display_step_freq: 1
 save_step_freq: 100
 eval_step_freq: 10
 
@@ -16,7 +16,7 @@ train: true
 # data path
 dataset: gopro
 data_root_train: C:\Users\Machine Learning GPU\Desktop\GOPRO_Large_all(2)
-seq_len_train: [5, 8]
+seq_len_train: [4, 16]
 
 training_augmentations:
   resize: [256, 256]
@@ -96,7 +96,7 @@ hyperparameters:
 # hyperparameters for training
 training_parameters:
   lr: 0.0005
-  batch_size: 32
+  batch_size: 8
   num_epochs: 10
   prob_for_frame_drop: 0.2
 

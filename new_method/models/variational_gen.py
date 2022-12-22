@@ -15,6 +15,7 @@ from models.latent_modeling import lstm, gaussian_lstm
 from models.positional_encoding import Positional_encoding
 from utils.loss import KLCriterion, PSNR, SSIM, SmoothMSE
 
+
 class Variational_Gen(nn.Module):
     def __init__(self, args, batch_size=2, prob_for_frame_drop=0, lr=0.001):
         super(Variational_Gen, self).__init__()
@@ -57,15 +58,13 @@ class Variational_Gen(nn.Module):
                 self.lr = lr
             if args.optimizer["optimizer_name"] == "AdamW":
                 self.optimizer = optim.AdamW
-                
+
         else:
             self.prob_for_frame_drop = 0
 
         self.mse_criterion = nn.MSELoss()
         self.latent_mse = nn.MSELoss()  # recon and cpc
         self.kl_criterion = KLCriterion()
-        self.psnr = PSNR()
-        self.ssim = nn.MSELoss()
         self.align_criterion = KLCriterion()
 
         if args.test != True:
@@ -102,7 +101,7 @@ class Variational_Gen(nn.Module):
         blur_features = self.encoder(motion_blur_image)
         blur_features = self.motion_encoder(blur_features[1][5])  # 8*8*8*8
         blur_features = blur_features.view(self.batch_size, -1)
-        print("blur_features:", blur_features.shape)
+        # print("blur_features:", blur_features.shape)
         self.reconstruction_loss_post = 0
         self.reconstruction_loss_prior = 0
         self.alignment_loss = 0
@@ -115,26 +114,26 @@ class Variational_Gen(nn.Module):
             0, 1, len(sharp_images)) >= self.prob_for_frame_drop
         last_time_stamp = 0
 
-        print(frame_use)
-        print(len(sharp_images))
+        # print(frame_use)
+        # print(len(sharp_images))
 
         for i in range(1, len(sharp_images)):
             # encoder
             if frame_use[i]:
                 last_time_stamp = i
-                
+
                 sharp_features_encoding, feature_cache = self.encoder(
                     sharp_images[last_time_stamp])
                 time_info = self.pos_encoder(
                     last_time_stamp, i, len(sharp_images), self.batch_size).to(sharp_features_encoding.device)
-                print(sharp_features_encoding.shape)
-                print(time_info.shape)
-                print(blur_features.shape)
+                # print(sharp_features_encoding.shape)
+                # print(time_info.shape)
+                # print(blur_features.shape)
 
                 posterior_input = torch.cat(
                     (sharp_features_encoding, blur_features, time_info), 1)
 
-                print(sharp_features_encoding.device)
+                # print(sharp_features_encoding.device)
                 # prior
                 if mode != 'test':
                     target_encoding, target_cache = self.encoder(
@@ -153,7 +152,7 @@ class Variational_Gen(nn.Module):
 
                 # decoder
                 z_decoder = self.decoder_lstm(z_i_post)
-                print(z_decoder.shape)
+                # print(z_decoder.shape)
                 x_i = self.decoder(z_decoder, feature_cache)
 
                 generated_sequence[i] = x_i
@@ -163,10 +162,10 @@ class Variational_Gen(nn.Module):
                     target_i = self.decoder(z_p, target_cache)
 
                 self.reconstruction_loss_post = self.reconstruction_loss_post + self.mse_criterion(
-                    x_i, sharp_images[i]) + self.psnr(x_i, sharp_images[i]) + self.ssim(x_i, sharp_images[i])
+                    x_i, sharp_images[i])
                 if mode != 'test':
                     self.reconstruction_loss_prior = self.reconstruction_loss_prior + self.mse_criterion(
-                        target_i, sharp_images[i]) + self.psnr(target_i, sharp_images[i]) + self.ssim(target_i, sharp_images[i])
+                        target_i, sharp_images[i])
                     self.alignment_loss = self.alignment_loss + \
                         self.align_criterion(
                             mu_i_post, logvar_i_post, mu_i_prior, logvar_i_prior)
@@ -178,66 +177,48 @@ class Variational_Gen(nn.Module):
 
                 if i == len(sharp_images)-1:
                     if mode != 'test':
-                        self.last_frame_gen_loss = self.mse_criterion(target_i, sharp_images[i]) + self.psnr(
-                            target_i, sharp_images[i]) + self.ssim(target_i, sharp_images[i])
-
-                
+                        self.last_frame_gen_loss = self.mse_criterion(
+                            target_i, sharp_images[i])
             else:
                 continue
-       
+
          # average all losses over the sequence
         self.reconstruction_loss_post = self.reconstruction_loss_post / \
-            (len(sharp_images) - 1)
+            (len(generated_sequence) - 1)
         self.reconstruction_loss_prior = self.reconstruction_loss_prior / \
-            (len(sharp_images) - 1)
-        self.alignment_loss = self.alignment_loss / (len(sharp_images) - 1)
-        self.kl_loss_prior = self.kl_loss_prior / (len(sharp_images) - 1)
-        
-        # self.prior_lstm.zero_grad()
-        # prior_loss = self.kl_loss_prior + self.reconstruction_loss_prior + self.last_frame_gen_loss
-        # prior_loss.ard()
-        # self.update_prior()
-        # set gradients required to false
-        # target_encoding.requires_grad = False
-        # mu_i_prior.requires_grad = False
-        # logvar_i_prior.requires_grad = False
-        loss = self.reconstruction_loss_post + self.alignment_loss + self.latent_loss
-        loss.backward(retain_graph=True)
-        self.update_model_without_prior()
-
-        # target_encoding.requires_grad = True
-        # mu_i_prior.requires_grad = True
-        # logvar_i_prior.requires_grad = True
-        # update model with prior due to loss_on_prior
-        self.prior_lstm.zero_grad()
-        prior_loss = self.kl_loss_prior  # + \
-        # self.reconstruction_loss_prior + self.last_frame_gen_loss
-        prior_loss.backward(retain_graph=True)
-        self.update_prior()
+            (len(generated_sequence) - 1)
+        self.alignment_loss = self.alignment_loss / \
+            (len(generated_sequence) - 1)
+        self.kl_loss_prior = self.kl_loss_prior / (len(generated_sequence) - 1)
+        self.latent_loss = self.latent_loss / (len(generated_sequence) - 1)
 
         if mode != 'test':
-            return generated_sequence, self.reconstruction_loss_post, self.alignment_loss, self.latent_loss, self.kl_loss_prior, self.reconstruction_loss_prior, self.last_frame_gen_loss
+            return generated_sequence, [self.reconstruction_loss_post, self.alignment_loss, self.latent_loss, self.kl_loss_prior, self.reconstruction_loss_prior, self.last_frame_gen_loss]
         else:
-            return generated_sequence, self.reconstruction_loss_post
+            return generated_sequence, [self.reconstruction_loss_post]
 
-    def update_model_without_prior(self):
-        # loss = self.reconstruction_loss_post + self.alignment_loss + self.latent_loss
-        # loss.backward(retain_graph=True)
-        # for param in self.prior_lstm.parameters():
-        #     param.grad = None
-        # self.motion_encoder_optimizer.step()
-        # self.positional_encoder_optimizer.step()
-        self.posterior_optimizer.step()
-        self.decoder_lstm_optimizer.step()
-        self.decoder_optimizer.step()
+    def update_model(self):
+        self.encoder_optimizer.zero_grad()
+        self.decoder_optimizer.zero_grad()
+        self.posterior_optimizer.zero_grad()
+        self.prior_optimizer.zero_grad()
+        self.decoder_lstm_optimizer.zero_grad()
+
+        loss = self.reconstruction_loss_post + self.alignment_loss + self.latent_loss
+        loss.backward(retain_graph=True)
+
+        self.prior_lstm.zero_grad()
+        prior_loss = self.kl_loss_prior + \
+            self.reconstruction_loss_prior + self.last_frame_gen_loss
+        prior_loss.backward(retain_graph=True)
+
         self.encoder_optimizer.step()
-
-    def update_prior(self):
-        # self.prior_lstm.zero_grad()
-        # prior_loss = self.kl_loss_prior + \
-        #     self.reconstruction_loss_prior + self.last_frame_gen_loss
-        # prior_loss.backward()
+        self.decoder_optimizer.step()
+        self.posterior_optimizer.step()
         self.prior_optimizer.step()
+        self.decoder_lstm_optimizer.step()
+
+        return loss.item(), prior_loss.item()
 
     def save(self, fname):
         # save weights of each module

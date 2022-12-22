@@ -2,16 +2,7 @@ dataset/
 old_approaches/STAFAN/data/
 old_approaches/STAFAN/output/
 ckpt/
-<<<<<<< HEAD
 papers/
 new_method/checkpoints/
 new_method/runs/
-<<<<<<< HEAD
-runs/
-=======
-runs/
-papers/
-=======
-papers/
->>>>>>> bf491fb7bbe184bbce15c85ff2fc34a104cfcaba
->>>>>>> 23406bef2ed14ac40de1932e99647bce7e63cf77
+

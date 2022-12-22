@@ -17,7 +17,7 @@ class Corr_Encoder(nn.Module):
         self.softmax = nn.Softmax(dim=0)
     def forward(self, features):
         N, D, H, W = features.shape
-        print(features.shape)
+        # print(features.shape)
         list_curr_volumes = []
         for i in range(N):
             current_feature = features[0]
@@ -28,7 +28,7 @@ class Corr_Encoder(nn.Module):
             list_curr_volumes.append(corr_volume)
 
         output = torch.stack(list_curr_volumes)
-        print(output.shape)
+        # print(output.shape)
         # N, H, W, H, W = output.shape
 
         return output

@@ -27,16 +27,10 @@ import cv2
 import os
 import yaml
 import sys
-# print(sys.path)
 
-
-######################################################################
-# optimizers
-
-######################################################################
-# gradient  scaler
-
+##########################################################
 # scheduler for optimizers
+
 
 def fetch_optimizer(args, model, lr, steps_per_epoch, epochs):
     # optimizer
@@ -111,7 +105,8 @@ class TensorboardWriter(object):
         elif args.sweep:
             mode = 'sweep'
         self.writer = SummaryWriter(
-            "runs/" + args.name + "_" + args.dataset + "_" + mode)
+            args.run_dir + args.name + "_" + args.dataset + "_" + mode)
+        print(args.run_dir + args.name + "_" + args.dataset + "_" + mode)
         self.model = model
         self.scheduler = scheduler
         self.update_args(self.args)
@@ -130,10 +125,11 @@ class TensorboardWriter(object):
                 self.writer.add_histogram(
                     name + '/grad', param.grad.clone().cpu().data.numpy(), step)
 
-    def update_loss_and_metric(self, name, loss, metric, step):
-        self.writer.add_scalar(name + '/loss', loss, step)
-        for key, value in metric.items():
-            self.writer.add_scalar(name + "/" + key, value, step)
+    def update_loss_and_metric(self, name, loss, loss_prior, step):
+        self.writer.add_scalar(name + '/posterier_loss', loss, step)
+        self.writer.add_scalar(name + '/prior_loss', loss_prior, step)
+        # for key, value in metric.items():
+        #     self.writer.add_scalar(name + "/" + key, value, step)
 
     # updating learning rate
     def update_learning_rate(self, lr, step):
@@ -164,99 +160,52 @@ class TensorboardWriter(object):
 # loading model directory
 torch.autograd.set_detect_anomaly(True)
 
+
 def train(model, args):
     model.train()
-    print('loading data...')
+    # load data
+    print("Augmentions used...")
     transform = get_transform(args, 'train')
-    print('training augmentations: ', transform)
+    print("training augmentation: ", transform)
 
-    train_dataset = Gopro(args, transform, "train")
-    print(len(train_dataset))
+    training_dataset = Gopro(args, transform, "train")
     train_loader = torch.utils.data.DataLoader(
-        train_dataset, batch_size=args.training_parameters['batch_size'], shuffle=True, num_workers=args.num_workers, pin_memory=True, drop_last=True)
-    print('data loaded')
+        training_dataset, batch_size=args.training_parameters['batch_size'], shuffle=True, num_workers=args.num_workers, pin_memory=True, drop_last=True)
 
-    # writer = TensorboardWriter(args, None, model)
-    # training loop
+    print("loaded data and dataloader")
+
+    writer = TensorboardWriter(args, None, model)
+    print("TRAINING STARTED")
+
     for epoch in range(args.training_parameters['num_epochs']):
         for i, data in enumerate(train_loader):
-            """
-             data = {
-            'length': torch.tensor(self.max_seq_len),
-            'blur': self.transform(self.blurry_image),
-            'gen_seq': torch.cat(self.image_list, dim=0)
-            }
-            """
             seq_len = data['length'].cuda()
             blur_img = data['blur'].cuda()
             gen_seq = data['gen_seq'].cuda()
 
-            # step_size = np.random.randint(1, 5)
+            # for varing length generation
+            step_size = np.random.randint(1, 3)
             gen_seq = gen_seq.permute(1, 0, 2, 3, 4)
-            # gen_seq = gen_seq_all[::step_size]
-            generated_sequence, reconstruction_loss_post, alignment_loss, latent_loss, kl_loss_prior, reconstruction_loss_prior, last_frame_gen_loss = model(
-                gen_seq, blur_img, "train")
+            gen_seq = gen_seq[::step_size]
 
-            print(reconstruction_loss_post, alignment_loss, latent_loss,
-                  kl_loss_prior, reconstruction_loss_prior, last_frame_gen_loss)
-            # backprop
-            # model.update_model_without_prior()
-            # model.update_prior()
+            # forward pass
+            generated_seq, losses = model(gen_seq, blur_img, "train")
 
-    # aug_params = {'crop_size': args.training_augmentations['RandomCrop']
-    #               ['size'], 'min_scale': -0.2, 'max_scale': 0.4, 'do_flip': False}
-    # train_dataset = datasets.Carla_Dataset(
-    #     aug_params, split='training', root=args.data_root, seq=args.training_seq, setup_type=args.training_setup)
-    # train_loader = torch.utils.data.DataLoader(
-    #     train_dataset, batch_size=args.training_parameters['batch_size'], shuffle=True, num_workers=args.num_workers, pin_memory=True, drop_last=True)
-    # print(len(train_dataset))
-    # # load optimizer and scheduler
-    # optimizer, scheduler = fetch_optimizer(args, model, args.training_parameters['lr'], len(
-    #     train_loader), args.training_parameters['num_epochs'])
-    # scaler = GradScaler(enabled=args.mixed_precision)
-    # writer = TensorboardWriter(args, scheduler, model)
-    # # training loop
-    # for epoch in range(args.training_parameters['num_epochs']):
-    #     for i, data in enumerate(train_loader):
-    #         # data
-    #         optimizer.zero_grad()
-    #         image1, image2, flow, valid = [x.cuda() for x in data]
-    #         # forward pass
-    #         flow_pred = model(image1, image2)
-    #         # loss
-    #         loss, metric = sequence_loss(flow_pred, image1, image2, flow, valid,
-    #                                      gamma=args.training_parameters['flow_weighting_factor_gamma'], use_matching_loss=args.use_mix_attn)
-    #         if scheduler != None:
-    #             optimizer.zero_grad()
-    #             scaler.scale(loss).backward()
-    #             scaler.unscale_(optimizer)
-    #             torch.nn.utils.clip_grad_norm_(
-    #                 model.parameters(), args.training_parameters['clip_grad_norm'])
-    #             scaler.step(optimizer)
-    #             scheduler.step()
-    #             scaler.update()
-    #             if i % args.display_step_freq == 0:
-    #                 print('Epoch: [{}/{}], Step: [{}/{}], lr: {:.8f}, Loss: {:.8f}, epe:{:.8f}, 1px: {:.8f}, 3px: {:.8f},5px: {:.8f}'.format(
-    #                     epoch+1, args.training_parameters['num_epochs'], i+1, len(train_loader), scheduler.get_last_lr()[0], loss.item(), metric['epe'], metric['1px'], metric['3px'], metric['5px']))
-    #         else:
-    #             optimizer.zero_grad()
-    #             scaler.scale(loss).backward()
-    #             scaler.unscale_(optimizer)
-    #             scaler.step(optimizer)
-    #             torch.nn.utils.clip_grad_norm_(
-    #                 model.parameters(), args.training_parameters['clip_grad_norm'])
-    #             scaler.update()
-    #             if i % args.display_step_freq == 0:
-    #                 print('Epoch: [{}/{}], Step: [{}/{}], lr: {:.8f}, Loss: {:.8f}, epe:{:.8f}, 1px: {:.8f}, 3px: {:.8f},5px: {:.8f}'.format(epoch+1, args.training_parameters['num_epochs'],
-    #                       i+1, len(train_loader), args.training_parameters['lr'], loss.item(), metric['epe'], metric['1px'], metric['3px'], metric['5px']))
-    #         # tensorboard
-    #         writer.update(model, loss, metric, epoch *
-    #                       len(train_loader)+i, 'train')
+            # loss and backprop
+            posterior_loss, prior_loss = model.update_model()
 
-    #         if i % args.save_step_freq == 0:
-    #             torch.save(model.state_dict(), args.checkpoint_dir + args.name +
-    #                        '_epoch_' + str(epoch) + '_step_' + str(i) + '.pth')
-    # writer.close()
+            writer.update(model, posterior_loss, prior_loss, epoch *
+                          len(train_loader)+i, 'train')
+
+            if i % args.display_step_freq == 0:
+                print("epoch: ", epoch, "step: ", i, "posterior_loss: ",
+                      posterior_loss, "prior_loss: ", prior_loss, "gen_seq_length:", len(generated_seq))
+
+            if (i+args.save_step_freq) % args.save_step_freq == 0:
+                print("saving model")
+                model.save(args.checkpoint_dir + args.name +
+                           '_epoch_' + str(epoch) + '_step_' + str(i) + '.pth')
+    writer.close()
 
 
 def test(model, args):
@@ -415,10 +364,16 @@ def evaluate(model, args):
 def run(args):
     print(args)
     model = Variational_Gen(args)
-    model.cuda()
+
     if args.weights:
+        print("weights loaded")
         model.load(args.weights)
-        print("model loaded")
+
+    # print cuda device used for training
+    print("GPU:", torch.cuda.get_device_name(0))
+    model.cuda()
+
+    print("MODEL LOADED SUCCESSFULLY")
 
     if args.train:
         train(model, args)
@@ -657,8 +612,8 @@ if __name__ == '__main__':
     # about experiment
     parser.add_argument('--config', default=r'C:\Users\Machine Learning GPU\Desktop\fyp\fyp\new_method\config.yml',
                         help="config file", required=False)
-    parser.add_argument('--name', default='gmflownet',
-                        help="name of the experiment", required=False)
+    parser.add_argument(
+        '--name', help="name of the experiment", required=False)
 
     # about training and testing
     parser.add_argument('--resume', type=bool,
