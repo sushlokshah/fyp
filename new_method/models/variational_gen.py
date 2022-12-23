@@ -95,6 +95,7 @@ class Variational_Gen(nn.Module):
             batch_size=self.batch_size)
 
     def forward(self, sharp_images, motion_blur_image, mode):
+        print(mode)
         if mode == "train":
             self.init_hidden()
 
@@ -209,7 +210,8 @@ class Variational_Gen(nn.Module):
             gt_sequence = {}
             
             last_image = sharp_images[0]
-            
+            print("last image shape", last_image.shape)
+            print("seq_len", seq_len)
             for i in range(1, seq_len):
                 last_time_stamp = i
                 current_image  = last_image
