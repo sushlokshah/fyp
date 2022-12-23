@@ -213,13 +213,16 @@ class Variational_Gen(nn.Module):
             print("last image shape", last_image.shape)
             print("seq_len", seq_len)
             for i in range(1, seq_len):
+                print(i)
                 last_time_stamp = i
                 current_image  = last_image
                 
                 # updating ground truth
+                print("updating ground truth")
                 gt_sequence[i] = sharp_images[i].detach().cpu()
 
                 # encoder
+                print("encoder")
                 sharp_features_encoding, feature_cache = self.encoder(current_image)
                 
                 time_info = self.pos_encoder(
@@ -228,23 +231,26 @@ class Variational_Gen(nn.Module):
                 posterior_input = torch.cat(
                     (sharp_features_encoding, blur_features, time_info), 1)
 
-                
+                print("posterior")
                 # posterior
                 z_i_post, mu_i_post, logvar_i_post = self.posterior_lstm(
                     posterior_input)
 
-
+                print("decoder")
                 # decoder_lstm
                 z_decoder = self.decoder_lstm(z_i_post)
                 
                 # decoder
                 x_i = self.decoder(z_decoder, feature_cache)
-
+                print("x_i", x_i.shape)
+                
+                print("updating generated sequence")
                 generated_sequence_posterior[i] = x_i.detach().cpu()
 
                 self.reconstruction_loss_post = self.reconstruction_loss_post + self.mse_criterion(
                     x_i, sharp_images[i])
                 
+                print("updating last image")
                 last_image = x_i
                     
             # average all losses over the sequence
