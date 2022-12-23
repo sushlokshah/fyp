@@ -25,7 +25,8 @@ def visualize(posterior, gt, prior=None, path="output.png"):
 
     for keys in posterior.keys():
         post_seq.append(posterior[keys][0])
-        prior_seq.append(prior[keys][0])
+        if prior!=None:
+            prior_seq.append(prior[keys][0])
         gt_seq.append(gt[keys][0])
     post_seq = torch_utils.make_grid(
         post_seq, nrow=1, padding=0, normalize=False, range=None, scale_each=False, pad_value=0)
