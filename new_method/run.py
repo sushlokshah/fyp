@@ -28,7 +28,7 @@ import cv2
 import os
 import yaml
 import sys
-
+import torchvision.utils as torch_utils
 ##########################################################
 # scheduler for optimizers
 
@@ -221,48 +221,46 @@ def train(model, args):
 
 
 def test(model, args):
-    print('testing data sequences')
-    print("testing_sequences: ", args.test_seq)
     model.eval()
-    for seq in args.test_seq:
-        seq_list = []
-        seq_list.append(seq)
-        for setup in args.test_setup:
-            torch.cuda.empty_cache()
-            setuplist = []
-            setuplist.append(setup)
-            aug_params = {'crop_size': args.testing_augmentations['RandomCrop']
-                          ['size'], 'min_scale': -0.2, 'max_scale': 0.4, 'do_flip': False}
-            test_dataset = datasets.Carla_Dataset(
-                aug_params, split='training', root=args.data_root_test, seq=seq_list, setup_type=setuplist)
-            test_loader = torch.utils.data.DataLoader(
-                test_dataset, batch_size=args.testing_parameters['batch_size'], shuffle=False, num_workers=args.num_workers, pin_memory=True, drop_last=True)
-            total_loss = 0
-            total_metric = {}
-            total_metric['epe'] = 0
-            total_metric['1px'] = 0
-            total_metric['3px'] = 0
-            total_metric['5px'] = 0
-            for i, data in enumerate(test_loader):
-                # print(i)
-                # data
-                image1, image2, flow, valid = [x.cuda() for x in data]
-                # forward pass
-                flow_pred = model(image1, image2)
-                # loss
-                loss, metric = sequence_loss(flow_pred, image1, image2, flow, valid,
-                                             gamma=args.testing_parameters['flow_weighting_factor_gamma'], use_matching_loss=args.use_mix_attn)
-                # add loss and metric to tensorboard
-                total_loss += loss.item()
-                total_metric['epe'] += metric['epe']
-                total_metric['1px'] += metric['1px']
-                total_metric['3px'] += metric['3px']
-                total_metric['5px'] += metric['5px']
-                if args.visualize:
-                    visualize_flow(flow_pred, image1, image2, flow,
-                                   valid, args.visualization_path, setup, seq, i)
-            print('Setup: {}, Loss: {:.8f}, epe:{:.8f}, 1px: {:.8f}, 3px: {:.8f},5px: {:.8f}'.format(setup, total_loss/len(test_loader), total_metric['epe']/len(
-                test_loader), total_metric['1px']/len(test_loader), total_metric['3px']/len(test_loader), total_metric['5px']/len(test_loader)))
+    print("Augmentions used...")
+    transform = get_transform(args, 'test')
+    print("training augmentation: ", transform)
+
+    training_dataset = Gopro(args, transform, "train")
+    train_loader = torch.utils.data.DataLoader(
+        training_dataset, batch_size=args.testing_parameters['batch_size'], shuffle=True, num_workers=args.num_workers, pin_memory=True, drop_last=True)
+
+    print("loaded data and dataloader")
+
+    # writer = TensorboardWriter(args, None, model)
+    
+    for i, data in enumerate(train_loader):
+        seq_len = data['length'].cuda()
+        blur_img = data['blur'].cuda()
+        gen_seq = data['gen_seq']
+
+        # for varing length generation
+        step_size = np.random.randint(1, 3)
+        gen_seq = gen_seq.permute(1, 0, 2, 3, 4)
+        gen_seq = gen_seq[::step_size]
+        gen_seq = gen_seq.cuda()
+
+        # forward pass
+        generated_seq, losses = model(gen_seq, blur_img, "test")
+
+        # writer.update(model, posterior_loss, prior_loss, epoch *
+                        # len(train_loader)+i, 'train')
+
+        blur_img_cpu = blur_img.squeeze(0).cpu().detach()
+        torch_utils.save_image(blur_img_cpu, "blur_img.png")
+        visualize(generated_seq[1], generated_seq[0], path= "generated_seq.png")
+        break
+
+        
+        
+        
+        
+    # writer.close()
 
 
 def evaluate(model, args):

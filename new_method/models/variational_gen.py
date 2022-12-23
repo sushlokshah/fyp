@@ -95,52 +95,45 @@ class Variational_Gen(nn.Module):
             batch_size=self.batch_size)
 
     def forward(self, sharp_images, motion_blur_image, mode):
-        self.init_hidden()
+        if mode == "train":
+            self.init_hidden()
 
-        # motion encoding
-        blur_features = self.encoder(motion_blur_image)
-        blur_features = self.motion_encoder(blur_features[1][5])  # 8*8*8*8
-        blur_features = blur_features.view(self.batch_size, -1)
-        # print("blur_features:", blur_features.shape)
-        self.reconstruction_loss_post = 0
-        self.reconstruction_loss_prior = 0
-        self.alignment_loss = 0
-        self.kl_loss_prior = 0
-        self.latent_loss = 0
-        self.last_frame_gen_loss = 0
-        generated_sequence_posterior = {}
-        generated_sequence_prior = {}
-        gt_sequence = {}
+            # motion encoding
+            blur_features = self.encoder(motion_blur_image)
+            blur_features = self.motion_encoder(blur_features[1][5])  # 8*8*8*8
+            blur_features = blur_features.view(self.batch_size, -1)
+            
+            self.reconstruction_loss_post = 0
+            self.reconstruction_loss_prior = 0
+            self.alignment_loss = 0
+            self.kl_loss_prior = 0
+            self.latent_loss = 0
+            self.last_frame_gen_loss = 0
+            generated_sequence_posterior = {}
+            generated_sequence_prior = {}
+            gt_sequence = {}
 
-        # sequence generation
-        frame_use = np.random.uniform(
-            0, 1, len(sharp_images)) >= self.prob_for_frame_drop
-        last_time_stamp = 0
+            # sequence generation
+            frame_use = np.random.uniform(
+                0, 1, len(sharp_images)) >= self.prob_for_frame_drop
+            last_time_stamp = 0
 
-        # print(frame_use)
-        # print(len(sharp_images))
+            for i in range(1, len(sharp_images)):
+                # encoder
+                if frame_use[i]:
+                    last_time_stamp = i
 
-        for i in range(1, len(sharp_images)):
-            # encoder
-            if frame_use[i]:
-                last_time_stamp = i
+                    gt_sequence[i] = sharp_images[i].detach().cpu()
 
-                gt_sequence[i] = sharp_images[i].detach().cpu()
+                    sharp_features_encoding, feature_cache = self.encoder(
+                        sharp_images[last_time_stamp])
+                    time_info = self.pos_encoder(
+                        last_time_stamp, i, len(sharp_images), self.batch_size).to(sharp_features_encoding.device)
+                   
+                    posterior_input = torch.cat(
+                        (sharp_features_encoding, blur_features, time_info), 1)
 
-                sharp_features_encoding, feature_cache = self.encoder(
-                    sharp_images[last_time_stamp])
-                time_info = self.pos_encoder(
-                    last_time_stamp, i, len(sharp_images), self.batch_size).to(sharp_features_encoding.device)
-                # print(sharp_features_encoding.shape)
-                # print(time_info.shape)
-                # print(blur_features.shape)
-
-                posterior_input = torch.cat(
-                    (sharp_features_encoding, blur_features, time_info), 1)
-
-                # print(sharp_features_encoding.device)
-                # prior
-                if mode != 'test':
+                    # prior                    
                     target_encoding, target_cache = self.encoder(
                         sharp_images[i])
                     time_info = self.pos_encoder(
@@ -148,27 +141,28 @@ class Variational_Gen(nn.Module):
                     prior_input = torch.cat(
                         (target_encoding, blur_features, time_info), 1)
 
-                z_i_post, mu_i_post, logvar_i_post = self.posterior_lstm(
-                    posterior_input)
+                    
+                    
+                    z_i_post, mu_i_post, logvar_i_post = self.posterior_lstm(
+                        posterior_input)
 
-                if mode != 'test':
                     z_i_prior, mu_i_prior, logvar_i_prior = self.prior_lstm(
-                        prior_input)
+                            prior_input)
 
-                # decoder
-                z_decoder = self.decoder_lstm(z_i_post)
-                # print(z_decoder.shape)
-                x_i = self.decoder(z_decoder, feature_cache)
+                    # decoder
+                    z_decoder = self.decoder_lstm(z_i_post)
+                    # print(z_decoder.shape)
+                    x_i = self.decoder(z_decoder, feature_cache)
 
-                generated_sequence_posterior[i] = x_i.detach().cpu()
+                    generated_sequence_posterior[i] = x_i.detach().cpu()
 
-                if mode != 'test':
                     z_p = self.decoder_lstm(z_i_prior)
                     target_i = self.decoder(z_p, target_cache)
                     generated_sequence_prior[i] = target_i.detach().cpu()
-                self.reconstruction_loss_post = self.reconstruction_loss_post + self.mse_criterion(
-                    x_i, sharp_images[i])
-                if mode != 'test':
+                
+                    self.reconstruction_loss_post = self.reconstruction_loss_post + self.mse_criterion(
+                        x_i, sharp_images[i])
+                    
                     self.reconstruction_loss_prior = self.reconstruction_loss_prior + self.mse_criterion(
                         target_i, sharp_images[i])
                     self.alignment_loss = self.alignment_loss + \
@@ -180,29 +174,85 @@ class Variational_Gen(nn.Module):
                     self.latent_loss = self.latent_loss + \
                         self.latent_mse(z_decoder, target_encoding)
 
-                if i == len(sharp_images)-1:
-                    if mode != 'test':
+                    if i == len(sharp_images)-1:
                         self.last_frame_gen_loss = self.mse_criterion(
                             target_i, sharp_images[i])
-            else:
-                continue
+                else:
+                    continue
 
-         # average all losses over the sequence
-        self.reconstruction_loss_post = self.reconstruction_loss_post / \
-            (len(generated_sequence_posterior) - 1)
-        self.reconstruction_loss_prior = self.reconstruction_loss_prior / \
-            (len(generated_sequence_posterior) - 1)
-        self.alignment_loss = self.alignment_loss / \
-            (len(generated_sequence_posterior) - 1)
-        self.kl_loss_prior = self.kl_loss_prior / \
-            (len(generated_sequence_posterior) - 1)
-        self.latent_loss = self.latent_loss / \
-            (len(generated_sequence_posterior) - 1)
+            # average all losses over the sequence
+            self.reconstruction_loss_post = self.reconstruction_loss_post / \
+                (len(generated_sequence_posterior) - 1)
+            self.reconstruction_loss_prior = self.reconstruction_loss_prior / \
+                (len(generated_sequence_posterior) - 1)
+            self.alignment_loss = self.alignment_loss / \
+                (len(generated_sequence_posterior) - 1)
+            self.kl_loss_prior = self.kl_loss_prior / \
+                (len(generated_sequence_posterior) - 1)
+            self.latent_loss = self.latent_loss / \
+                (len(generated_sequence_posterior) - 1)
 
-        if mode != 'test':
             return [gt_sequence, generated_sequence_posterior, generated_sequence_prior], [self.reconstruction_loss_post, self.alignment_loss, self.latent_loss, self.kl_loss_prior, self.reconstruction_loss_prior, self.last_frame_gen_loss]
-        else:
+
+        elif mode == "test":
+            self.init_hidden()
+            seq_len = len(sharp_images)
+            
+            # motion encoding
+            blur_features = self.encoder(motion_blur_image)
+            blur_features = self.motion_encoder(blur_features[1][5])  # 8*8*8*8
+            blur_features = blur_features.view(self.batch_size, -1)
+            
+            # losses
+            self.reconstruction_loss_post = 0
+            generated_sequence_posterior = {}
+            gt_sequence = {}
+            
+            last_image = sharp_images[0]
+            
+            for i in range(1, seq_len):
+                last_time_stamp = i
+                current_image  = last_image
+                
+                # updating ground truth
+                gt_sequence[i] = sharp_images[i].detach().cpu()
+
+                # encoder
+                sharp_features_encoding, feature_cache = self.encoder(current_image)
+                
+                time_info = self.pos_encoder(
+                    last_time_stamp, i, len(sharp_images), self.batch_size).to(sharp_features_encoding.device)
+                
+                posterior_input = torch.cat(
+                    (sharp_features_encoding, blur_features, time_info), 1)
+
+                
+                # posterior
+                z_i_post, mu_i_post, logvar_i_post = self.posterior_lstm(
+                    posterior_input)
+
+
+                # decoder_lstm
+                z_decoder = self.decoder_lstm(z_i_post)
+                
+                # decoder
+                x_i = self.decoder(z_decoder, feature_cache)
+
+                generated_sequence_posterior[i] = x_i.detach().cpu()
+
+                self.reconstruction_loss_post = self.reconstruction_loss_post + self.mse_criterion(
+                    x_i, sharp_images[i])
+                
+                last_image = x_i
+                    
+            # average all losses over the sequence
+            self.reconstruction_loss_post = self.reconstruction_loss_post / \
+                (len(generated_sequence_posterior) - 1)
+            
             return [gt_sequence, generated_sequence_posterior], [self.reconstruction_loss_post]
+
+            
+            
 
     def update_model(self):
         self.encoder_optimizer.zero_grad()
