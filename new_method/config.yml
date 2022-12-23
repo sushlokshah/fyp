@@ -20,9 +20,9 @@ seq_len_train: [4, 16]
 
 training_augmentations:
   resize: [256, 256]
-  color_jitter: [0.4, 0.4, 0.4, 0.1]
-  random_flip: true
-  random_rotation: 10
+  # color_jitter: [0.4, 0.4, 0.4, 0.1]
+  # random_flip: true
+  # random_rotation: 10
   # random_affine: [0, 0, 0, 0.1]
   # random_perspective: [0.1, 0.1, 0.1, 0.1]
   # random_erasing: [0.5, 0.5, 0.5, 0.5, 0.5]
@@ -46,7 +46,7 @@ update_validation_loss: true
 update_weights: true
 
 # if visualize
-visualize: false
+visualize: true
 visualization_path: C:\Users\Machine Learning GPU\Desktop\fyp\fyp\new_method\visualization\
 
 #optimizer and optimizer specific parameters
