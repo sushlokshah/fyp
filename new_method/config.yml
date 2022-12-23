@@ -10,8 +10,8 @@ eval_step_freq: 10
 #about training and testing
 evaluate: false
 sweep: false
-test: false
-train: true
+test: true
+train: false
 
 # data path
 dataset: gopro
