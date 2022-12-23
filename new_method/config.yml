@@ -47,7 +47,7 @@ update_weights: true
 
 # if visualize
 visualize: false
-visualization_path: C:\Users\Machine Learning GPU\Desktop\fyp\fyp\new_method\visualization
+visualization_path: C:\Users\Machine Learning GPU\Desktop\fyp\fyp\new_method\visualization\
 
 #optimizer and optimizer specific parameters
 optimizer:

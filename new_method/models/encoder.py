@@ -29,8 +29,6 @@ class conv_encoder(nn.Module):
             return self.maxpool(self.conv_block(input))
         else:
             return self.conv_block(input)
-
-
 class encoder(nn.Module):
     def __init__(self, output_channels, input_channels, resblocks=False) -> None:
         super(encoder, self).__init__()
@@ -102,3 +100,42 @@ class encoder(nn.Module):
             encoding = self.conv8(h6)
             #print(encoding.shape)
         return encoding.view(-1, self.output_channels), [h1, h2, h3, h4, h5, h6]
+
+
+# basic pyramidal feature extractor model
+class Pyramidal_feature_encoder(nn.Module):
+    def __init__(self, output_channels, input_channels, dropout = 0.1):
+        super(Pyramidal_feature_encoder, self).__init__()
+    
+        self.output_channels = output_channels
+        
+        self.norm1 = nn.BatchNorm2d(self.output_channels//4)
+        self.norm2 = nn.BatchNorm2d(self.output_channels//2)
+        self.norm3 = nn.BatchNorm2d(self.output_channels)
+
+        self.conv1 = nn.Conv2d(input_channels, self.output_channels//4, kernel_size=7, stride=2, padding=3) #H/2,W/2
+        self.conv2 = nn.Conv2d(self.output_channels//4, self.output_channels//2, kernel_size=3, stride=2, padding=1) #H/4,W/4
+        self.conv3 = nn.Conv2d(self.output_channels//2,self.output_channels, kernel_size=3, stride=2, padding=1) # H/8 W/8
+
+        # # output convolution; this can solve mixed memory warning, not know why
+        # self.conv2 = nn.Conv2d(128, output_dim, kernel_size=1)
+
+        self.dropout = None
+        if dropout > 0:
+            self.dropout = nn.Dropout2d(p=dropout)
+        
+    def forward(self, x):
+        
+        # print(x.shape)
+        f1 = F.relu(self.norm1(self.conv1(x)), inplace=True)
+        f2 = F.relu(self.norm2(self.conv2(f1)), inplace=True)
+        f3 = F.relu(self.norm3(self.conv3(f2)), inplace=True)
+        
+        if self.dropout is not None:
+            output = self.dropout(f3)
+        else:
+            output = f3
+        return output, [f1, f2, f3] 
+    
+    
+# basic attention model

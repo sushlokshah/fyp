@@ -108,7 +108,10 @@ class Variational_Gen(nn.Module):
         self.kl_loss_prior = 0
         self.latent_loss = 0
         self.last_frame_gen_loss = 0
-        generated_sequence = {}
+        generated_sequence_posterior = {}
+        generated_sequence_prior = {}
+        gt_sequence = {}
+        
         # sequence generation
         frame_use = np.random.uniform(
             0, 1, len(sharp_images)) >= self.prob_for_frame_drop
@@ -121,7 +124,9 @@ class Variational_Gen(nn.Module):
             # encoder
             if frame_use[i]:
                 last_time_stamp = i
-
+                
+                gt_sequence[i] = sharp_images[i].deepcopy().detach().cpu()
+                
                 sharp_features_encoding, feature_cache = self.encoder(
                     sharp_images[last_time_stamp])
                 time_info = self.pos_encoder(
@@ -155,12 +160,12 @@ class Variational_Gen(nn.Module):
                 # print(z_decoder.shape)
                 x_i = self.decoder(z_decoder, feature_cache)
 
-                generated_sequence[i] = x_i
+                generated_sequence_posterior[i] = x_i.deepcopy().detach().cpu()
 
                 if mode != 'test':
                     z_p = self.decoder_lstm(z_i_prior)
                     target_i = self.decoder(z_p, target_cache)
-
+                    generated_sequence_prior[i] = target_i.deepcopy().detach().cpu()
                 self.reconstruction_loss_post = self.reconstruction_loss_post + self.mse_criterion(
                     x_i, sharp_images[i])
                 if mode != 'test':
@@ -184,18 +189,18 @@ class Variational_Gen(nn.Module):
 
          # average all losses over the sequence
         self.reconstruction_loss_post = self.reconstruction_loss_post / \
-            (len(generated_sequence) - 1)
+            (len(generated_sequence_posterior) - 1)
         self.reconstruction_loss_prior = self.reconstruction_loss_prior / \
-            (len(generated_sequence) - 1)
+            (len(generated_sequence_posterior) - 1)
         self.alignment_loss = self.alignment_loss / \
-            (len(generated_sequence) - 1)
-        self.kl_loss_prior = self.kl_loss_prior / (len(generated_sequence) - 1)
-        self.latent_loss = self.latent_loss / (len(generated_sequence) - 1)
+            (len(generated_sequence_posterior) - 1)
+        self.kl_loss_prior = self.kl_loss_prior / (len(generated_sequence_posterior) - 1)
+        self.latent_loss = self.latent_loss / (len(generated_sequence_posterior) - 1)
 
         if mode != 'test':
-            return generated_sequence, [self.reconstruction_loss_post, self.alignment_loss, self.latent_loss, self.kl_loss_prior, self.reconstruction_loss_prior, self.last_frame_gen_loss]
+            return [gt_sequence, generated_sequence_posterior, generated_sequence_prior] , [self.reconstruction_loss_post, self.alignment_loss, self.latent_loss, self.kl_loss_prior, self.reconstruction_loss_prior, self.last_frame_gen_loss]
         else:
-            return generated_sequence, [self.reconstruction_loss_post]
+            return [gt_sequence, generated_sequence_posterior] , [self.reconstruction_loss_post]
 
     def update_model(self):
         self.encoder_optimizer.zero_grad()

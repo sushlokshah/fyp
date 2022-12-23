@@ -159,7 +159,7 @@ class TensorboardWriter(object):
 ######################################################################
 # loading model directory
 torch.autograd.set_detect_anomaly(True)
-
+from utils.visualization import visualize
 
 def train(model, args):
     model.train()
@@ -181,12 +181,13 @@ def train(model, args):
         for i, data in enumerate(train_loader):
             seq_len = data['length'].cuda()
             blur_img = data['blur'].cuda()
-            gen_seq = data['gen_seq'].cuda()
+            gen_seq = data['gen_seq']
 
             # for varing length generation
             step_size = np.random.randint(1, 3)
             gen_seq = gen_seq.permute(1, 0, 2, 3, 4)
             gen_seq = gen_seq[::step_size]
+            gen_seq = gen_seq.cuda()
 
             # forward pass
             generated_seq, losses = model(gen_seq, blur_img, "train")
@@ -198,6 +199,12 @@ def train(model, args):
                           len(train_loader)+i, 'train')
 
             if i % args.display_step_freq == 0:
+                if args.visualize:
+                    if(len(generated_seq) == 3):
+                        visualize(generated_seq[1], generated_seq[0], prior=generated_seq[2], blur=blur_img[0], path=args.visualization_path + args.name + "_" + args.dataset + "_train" + "_epoch_" + str(epoch) + "_step_" + str(i) + ".png")
+                    else:
+                        visualize(generated_seq[1], generated_seq[0], path=args.visualization_path + args.name + "_" + args.dataset + "_train" + "_epoch_" + str(epoch) + "_step_" + str(i) + ".png") 
+                    
                 print("epoch: ", epoch, "step: ", i, "posterior_loss: ",
                       posterior_loss, "prior_loss: ", prior_loss, "gen_seq_length:", len(generated_seq))
 
@@ -206,7 +213,6 @@ def train(model, args):
                 model.save(args.checkpoint_dir + args.name +
                            '_epoch_' + str(epoch) + '_step_' + str(i) + '.pth')
     writer.close()
-
 
 def test(model, args):
     print('testing data sequences')
@@ -359,7 +365,6 @@ def evaluate(model, args):
                         torch.cuda.empty_cache()
             model.train()
     writer.close()
-
 
 def run(args):
     print(args)
@@ -579,7 +584,6 @@ def train_sweep(config, args=None):
             model.train()
     writer.close()
 
-
 if __name__ == '__main__':
     # set the seed
     torch.manual_seed(0)
@@ -702,6 +706,9 @@ if __name__ == '__main__':
         os.mkdir(args.checkpoint_dir)
     if not os.path.exists(args.run_dir):
         os.mkdir(args.run_dir)
+    if args.visualize:
+        if not os.path.exists(args.visualization_path):
+            os.mkdir(args.visualization_path)
     # set the gpus
     args.gpus = [i for i in range(len(args.gpus))]
 
