@@ -1,4 +1,5 @@
 from __future__ import print_function, division
+from utils.visualization import visualize
 from datasets.dataloader import Gopro, get_transform
 from models.variational_gen import Variational_Gen
 from utils.loss import PSNR, SSIM, KLCriterion, SmoothMSE
@@ -159,7 +160,7 @@ class TensorboardWriter(object):
 ######################################################################
 # loading model directory
 torch.autograd.set_detect_anomaly(True)
-from utils.visualization import visualize
+
 
 def train(model, args):
     model.train()
@@ -192,6 +193,7 @@ def train(model, args):
             # forward pass
             generated_seq, losses = model(gen_seq, blur_img, "train")
 
+            print(generated_seq[0][1].shape)
             # loss and backprop
             posterior_loss, prior_loss = model.update_model()
 
@@ -200,11 +202,13 @@ def train(model, args):
 
             if i % args.display_step_freq == 0:
                 if args.visualize:
-                    if(len(generated_seq) == 3):
-                        visualize(generated_seq[1], generated_seq[0], prior=generated_seq[2], blur=blur_img[0], path=args.visualization_path + args.name + "_" + args.dataset + "_train" + "_epoch_" + str(epoch) + "_step_" + str(i) + ".png")
+                    if (len(generated_seq) == 3):
+                        visualize(generated_seq[1], generated_seq[0], prior=generated_seq[2], blur=blur_img[0], path=args.visualization_path +
+                                  args.name + "_" + args.dataset + "_train" + "_epoch_" + str(epoch) + "_step_" + str(i) + ".png")
                     else:
-                        visualize(generated_seq[1], generated_seq[0], path=args.visualization_path + args.name + "_" + args.dataset + "_train" + "_epoch_" + str(epoch) + "_step_" + str(i) + ".png") 
-                    
+                        visualize(generated_seq[1], generated_seq[0], path=args.visualization_path + args.name +
+                                  "_" + args.dataset + "_train" + "_epoch_" + str(epoch) + "_step_" + str(i) + ".png")
+
                 print("epoch: ", epoch, "step: ", i, "posterior_loss: ",
                       posterior_loss, "prior_loss: ", prior_loss, "gen_seq_length:", len(generated_seq))
 
@@ -212,7 +216,9 @@ def train(model, args):
                 print("saving model")
                 model.save(args.checkpoint_dir + args.name +
                            '_epoch_' + str(epoch) + '_step_' + str(i) + '.pth')
+    model.save(args.checkpoint_dir + args.name + '_final' + '.pth')
     writer.close()
+
 
 def test(model, args):
     print('testing data sequences')
@@ -365,6 +371,7 @@ def evaluate(model, args):
                         torch.cuda.empty_cache()
             model.train()
     writer.close()
+
 
 def run(args):
     print(args)
@@ -583,6 +590,7 @@ def train_sweep(config, args=None):
                     # torch.cuda.empty_cache()
             model.train()
     writer.close()
+
 
 if __name__ == '__main__':
     # set the seed
