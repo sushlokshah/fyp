@@ -29,25 +29,25 @@ class Variational_Gen(nn.Module):
             self.batch_size = batch_size
         # sharp image encoder for both prior and posterior
         self.encoder = encoder(
-            self.args.model["encoder"]['output_channels'], 3, resblocks=False)
+            self.args.variational_gen["encoder"]['output_channels'], 3, resblocks=False)
         self.decoder = decoder(
-            self.args.model["encoder"]['output_channels'], 3, resblocks=False)
+            self.args.variational_gen["encoder"]['output_channels'], 3, resblocks=False)
 
         # motion encoder for posterior
         self.motion_encoder = Corr_Encoder()
 
         # latent modeling
-        self.prior_lstm = gaussian_lstm(self.args.model["encoder"]['output_channels'] + self.args.model["positional"]['output_channels'] + 4*4*4*4,
-                                        self.args.model["latent"]['output_channels'], self.args.model["latent"]['hidden_size'], self.args.model["latent"]['num_layers'], self.batch_size)
-        self.posterior_lstm = gaussian_lstm(self.args.model["encoder"]['output_channels'] + self.args.model["positional"]['output_channels'] + 4*4*4*4,
-                                            self.args.model["latent"]['output_channels'], self.args.model["latent"]['hidden_size'], self.args.model["latent"]['num_layers'], self.batch_size)
+        self.prior_lstm = gaussian_lstm(self.args.variational_gen["encoder"]['output_channels'] + self.args.variational_gen["positional"]['output_channels'] + 4*4*4*4,
+                                        self.args.variational_gen["latent"]['output_channels'], self.args.variational_gen["latent"]['hidden_size'], self.args.variational_gen["latent"]['num_layers'], self.batch_size)
+        self.posterior_lstm = gaussian_lstm(self.args.variational_gen["encoder"]['output_channels'] + self.args.variational_gen["positional"]['output_channels'] + 4*4*4*4,
+                                            self.args.variational_gen["latent"]['output_channels'], self.args.variational_gen["latent"]['hidden_size'], self.args.variational_gen["latent"]['num_layers'], self.batch_size)
 
-        self.decoder_lstm = lstm(self.args.model["latent"]['output_channels'], self.args.model["encoder"]['output_channels'],
-                                 self.args.model["latent"]['hidden_size'], self.args.model["latent"]['num_layers'], self.batch_size)
+        self.decoder_lstm = lstm(self.args.variational_gen["latent"]['output_channels'], self.args.variational_gen["encoder"]['output_channels'],
+                                 self.args.variational_gen["latent"]['hidden_size'], self.args.variational_gen["latent"]['num_layers'], self.batch_size)
 
         # positional encoding
         self.pos_encoder = Positional_encoding(
-            self.args.model["positional"]['output_channels'])
+            self.args.variational_gen["positional"]['output_channels'])
 
         if args.test != True:
             if args.train or args.evaluate:
