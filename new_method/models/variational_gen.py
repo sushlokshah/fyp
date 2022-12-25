@@ -17,6 +17,7 @@ from utils.loss import KLCriterion, PSNR, SSIM, SmoothMSE
 
 
 class Variational_Gen(nn.Module):
+    # added
     def __init__(self, args, batch_size=2, prob_for_frame_drop=0, lr=0.001):
         super(Variational_Gen, self).__init__()
         self.args = args
