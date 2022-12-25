@@ -100,9 +100,9 @@ class decoder(nn.Module):
         return d6
 
 
-class refinement_decoder(nn.Module):
+class Refinement_Decoder(nn.Module):
     def __init__(self,output_channels,input_channels):
-        super(refinement_decoder, self).__init__()
+        super(Refinement_Decoder, self).__init__()
         self.output_channels = output_channels
         self.input_channels = input_channels
             
@@ -160,7 +160,7 @@ class refinement_module(nn.Module):
         return x2
 
 if __name__ == '__main__':
-    model = refinement_decoder(3,128)
+    model = Refinement_Decoder(3,128)
     x = torch.randn(8,128,16,16)
     cache = [torch.randn(8,32,64,64),torch.randn(8,64,32,32), x]
     y = model(x,cache)
