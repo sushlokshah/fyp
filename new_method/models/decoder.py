@@ -98,3 +98,35 @@ class decoder(nn.Module):
             d6 = self.deconv6(torch.cat((d5, catche[0]), dim=1))
 
         return d6
+
+
+class refinement_decoder(nn.Module):
+    def __init__(self,output_channels,input_channels):
+        super(refinement_decoder, self).__init__()
+        self.output_channels = output_channels
+        self.input_channels = input_channels
+            
+        self.norm1 = nn.BatchNorm2d(self.input_channels//2)
+        self.norm2 = nn.BatchNorm2d(self.input_channels//4)
+        self.norm3 = nn.BatchNorm2d(self.output_channels)
+        
+        self.dconv1 = nn.ConvTranspose2d(self.input_channels, self.input_channels//2, kernel_size=4, stride=2, padding=1)
+        self.dconv2 = nn.ConvTranspose2d(2*self.input_channels//2, self.input_channels//4, kernel_size=4, stride=2, padding=1)
+        self.dconv3 = nn.ConvTranspose2d(2*self.input_channels//4, self.output_channels, kernel_size=8, stride=2, padding=3)
+        
+    def forward(self, x, cache):
+        f1 = F.relu(self.norm1(self.dconv1(x)))
+        print(f1.shape)
+        f2 = F.relu(self.norm2(self.dconv2(torch.cat((f1,cache[1]),dim=1))))
+        print(f2.shape)
+        f3 = F.relu(self.norm3(self.dconv3(torch.cat((f2,cache[0]),dim=1))))
+        
+        return f3
+    
+
+if __name__ == '__main__':
+    model = Warping_based_decoder(3,128)
+    x = torch.randn(8,128,16,16)
+    cache = [torch.randn(8,32,64,64),torch.randn(8,64,32,32), x]
+    y = model(x,cache)
+    print(y.shape)

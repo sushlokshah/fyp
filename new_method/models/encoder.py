@@ -9,6 +9,8 @@ import torch.nn.functional as F
 import torch.optim as optim
 import os
 import torch.utils.data
+from torch.autograd import Variable
+
 
 from models.resnet import ResnetBlock
 
@@ -104,7 +106,7 @@ class encoder(nn.Module):
 
 # basic pyramidal feature extractor model
 class Pyramidal_feature_encoder(nn.Module):
-    def __init__(self, output_channels, input_channels, dropout = 0.1):
+    def __init__(self, output_channels, input_channels, dropout = 0):
         super(Pyramidal_feature_encoder, self).__init__()
     
         self.output_channels = output_channels
@@ -138,4 +140,151 @@ class Pyramidal_feature_encoder(nn.Module):
         return output, [f1, f2, f3] 
     
     
-# basic attention model
+#multiheaded self attention module over the feature maps
+
+class Feature_extractor(nn.Module):
+    def __init__(self, output_channels, input_channels, nheads, dropout = 0):
+        super(Feature_extractor, self).__init__()
+        
+        self.feature_encoder = Pyramidal_feature_encoder(output_channels, input_channels, dropout)
+        self.self_attention = nn.MultiheadAttention(output_channels, nheads, dropout=dropout, kdim=output_channels, vdim=output_channels)
+    
+    def forward(self, x):
+        encoded_features, feature_scale = self.feature_encoder(x)
+        # print(encoded_features.shape)
+        input_features = encoded_features.reshape(encoded_features.shape[0], encoded_features.shape[1], -1)
+        input_features = input_features.permute(2,0,1)
+        # print(encoded_features.shape)
+        attn_features, attn_map = self.self_attention(input_features, input_features, input_features)
+        attn_features = attn_features.permute(1,2,0)
+        attn_features = attn_features.reshape(encoded_features.shape)
+        attn_map = attn_map.reshape(encoded_features.shape[0], encoded_features.shape[2],encoded_features.shape[3], encoded_features.shape[2], encoded_features.shape[3])
+        return attn_features, attn_map, encoded_features, feature_scale
+    
+
+class Feature_forcaster(nn.Module):
+    def __init__(self, in_channels, out_channels, nheads, dropout = 0):
+        super(Feature_forcaster, self).__init__()
+        
+        self.feature_projector1 = nn.Sequential(
+            nn.Linear(in_channels, in_channels),
+            nn.ReLU(inplace=True),
+            nn.Linear(in_channels, in_channels),
+            nn.ReLU(inplace=True),
+            nn.Linear(in_channels, out_channels),
+            nn.ReLU(inplace=True)
+        )
+        self.feature_projector2 = nn.Sequential(
+            nn.Linear(in_channels, in_channels),
+            nn.ReLU(inplace=True),
+            nn.Linear(in_channels, in_channels),
+            nn.ReLU(inplace=True),
+            nn.Linear(in_channels, out_channels),
+            nn.ReLU(inplace=True)
+        )
+        
+        self.cross_correlation = nn.MultiheadAttention(out_channels, nheads, dropout=dropout, kdim=out_channels, vdim=out_channels)
+        
+        self.softmax1 = nn.Softmax(dim=1)
+        self.softmax2 = nn.Softmax(dim=2)
+        
+        
+    def forward(self, sharp_features, history_encoding, current_encoding):
+        # sharp encoding : [batch, in_channel, H, W]
+        # history encoding : [batch, in_channel, H, W]
+        # current encoding : [batch, out_channel, H, W]
+        N, fC, fH, fW = current_encoding.shape
+        # project each features from [batch, in_channel, H, W] to [batch, out_channel, H, W]
+        projected_sharp_features = sharp_features.permute(1,0,2,3)
+        projected_sharp_features = projected_sharp_features.reshape(projected_sharp_features.shape[0], -1)
+        projected_sharp_features = projected_sharp_features.permute(1,0)
+        projected_sharp_features = self.feature_projector1(projected_sharp_features)
+        projected_sharp_features = projected_sharp_features.permute(1,0)
+        projected_sharp_features = projected_sharp_features.reshape(projected_sharp_features.shape[0],sharp_features.shape[0], sharp_features.shape[2], sharp_features.shape[3])
+        projected_sharp_features = projected_sharp_features.permute(1,0,2,3)
+        
+        projected_blurred_features = history_encoding.permute(1,0,2,3)
+        projected_blurred_features = projected_blurred_features.reshape(projected_blurred_features.shape[0], -1)
+        projected_blurred_features = projected_blurred_features.permute(1,0)
+        projected_blurred_features = self.feature_projector2(projected_blurred_features)
+        projected_blurred_features = projected_blurred_features.permute(1,0)
+        projected_blurred_features = projected_blurred_features.reshape(projected_blurred_features.shape[0],history_encoding.shape[0], history_encoding.shape[2], history_encoding.shape[3])
+        projected_blurred_features = projected_blurred_features.permute(1,0,2,3)
+        
+         
+        q = projected_sharp_features.reshape(projected_sharp_features.shape[0], projected_sharp_features.shape[1], -1)
+        q = q.permute(2,0,1)
+        
+        k = projected_blurred_features.reshape(projected_blurred_features.shape[0], projected_blurred_features.shape[1], -1)
+        k = k.permute(2,0,1)
+        
+        v = current_encoding.reshape(current_encoding.shape[0], current_encoding.shape[1], -1)
+        v = v.permute(2,0,1)
+        
+        # print(encoded_features.shape)
+        attn_features, attn_map = self.cross_correlation(q, k, v)
+        attn_features = attn_features.permute(1,2,0)
+        attn_features = attn_features.reshape(current_encoding.shape)
+        # print(attn_features.shape, attn_map.shape)
+        correlation_map = attn_map.reshape(current_encoding.shape[0], current_encoding.shape[2],current_encoding.shape[3], current_encoding.shape[2], current_encoding.shape[3])
+        match12, match_idx12 = attn_map.max(dim=2) # (N, fH*fW)
+        match21, match_idx21 = attn_map.max(dim=1)
+
+        for b_idx in range(N):
+            match21_b = match21[b_idx,:]
+            match_idx12_b = match_idx12[b_idx,:]
+            match21[b_idx,:] = match21_b[match_idx12_b]
+
+        matched = (match12 - match21) == 0  # (N, fH*fW)
+        coords_index = torch.arange(fH*fW).unsqueeze(0).repeat(N,1).to(current_encoding.device)
+        coords_index[matched] = match_idx12[matched]
+
+        # matched coords
+        coords_index = coords_index.reshape(N, fH, fW)
+        coords_x = coords_index % fW
+        coords_y = coords_index // fW
+
+        coords_xy = torch.stack([coords_x, coords_y], dim=1).float()
+        
+        return attn_features, correlation_map, coords_xy
+        
+def warp(features, flow):
+    B, C, H, W = features.size()
+    # mesh grid
+    xx = torch.arange(0, W).view(1 ,-1).repeat(H ,1)
+    yy = torch.arange(0, H).view(-1 ,1).repeat(1 ,W)
+    xx = xx.view(1 ,1 ,H ,W).repeat(B ,1 ,1 ,1)
+    yy = yy.view(1 ,1 ,H ,W).repeat(B ,1 ,1 ,1)
+    grid = torch.cat((xx ,yy) ,1).float().to(features.device)
+    vgrid = Variable(grid) + flow
+
+    # scale grid to [-1,1]
+    vgrid[: ,0 ,: ,:] = 2.0 *vgrid[: ,0 ,: ,:].clone() / max( W -1 ,1 ) -1.0
+    vgrid[: ,1 ,: ,:] = 2.0 *vgrid[: ,1 ,: ,:].clone() / max( H -1 ,1 ) -1.0
+
+    print(features.device, vgrid.device)
+    vgrid = vgrid.permute(0 ,2 ,3 ,1)
+    flow = flow.permute(0 ,2 ,3 ,1)
+    output = F.grid_sample(features, vgrid.to(features.device),align_corners=True)
+    mask = torch.autograd.Variable(torch.ones(features.size())).to(features.device)
+    mask = F.grid_sample(mask, vgrid, align_corners=True)
+    mask[mask <0.9999] = 0
+    mask[mask >0] = 1
+    
+    return output*mask        
+
+
+
+if __name__ == "__main__":
+    model = Feature_extractor(128, 3, 4)
+    x = torch.randn(8, 3, 128, 128)
+    y, attn_map, encoded_features, feature_scale = model(x)
+    # print(attn_map.shape)
+    print(feature_scale[0].shape)
+    print(feature_scale[1].shape)
+    print(feature_scale[2].shape)
+    # model2 = Feature_forcaster(128,128,8)
+    # y2, corr_map, co_ord = model2(y, encoded_features, encoded_features)
+    # print(y2.shape, corr_map.shape, co_ord)
+    # y3 = warp(y2,co_ord)
+    # print(y3.shape)

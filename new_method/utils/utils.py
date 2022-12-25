@@ -10,4 +10,4 @@ import torch.optim as optim
 import os
 import torch.utils.data
 
-# def generation_viz()
+
