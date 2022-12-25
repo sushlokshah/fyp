@@ -228,12 +228,12 @@ def test(model, args):
 
     training_dataset = Gopro(args, transform, "train")
     train_loader = torch.utils.data.DataLoader(
-        training_dataset, batch_size=args.testing_parameters['batch_size'], shuffle=True, num_workers=args.num_workers, pin_memory=True, drop_last=True)
+        training_dataset, batch_size=args.testing_parameters['batch_size'], shuffle=False, num_workers=args.num_workers, pin_memory=True, drop_last=True)
 
     print("loaded data and dataloader")
 
     # writer = TensorboardWriter(args, None, model)
-    
+
     for i, data in enumerate(train_loader):
         seq_len = data['length'].cuda()
         blur_img = data['blur'].cuda()
@@ -249,17 +249,13 @@ def test(model, args):
         generated_seq, losses = model(gen_seq, blur_img, "test")
 
         # writer.update(model, posterior_loss, prior_loss, epoch *
-                        # len(train_loader)+i, 'train')
-
+        # len(train_loader)+i, 'train')
+        print("visualizing")
         blur_img_cpu = blur_img.squeeze(0).cpu().detach()
         torch_utils.save_image(blur_img_cpu, "blur_img.png")
-        visualize(generated_seq[1], generated_seq[0], path= "generated_seq.png")
+        visualize(generated_seq[1], generated_seq[0], path="generated_seq.png")
         break
 
-        
-        
-        
-        
     # writer.close()
 
 

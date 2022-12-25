@@ -28,25 +28,25 @@ class Variational_Gen(nn.Module):
             self.batch_size = batch_size
         # sharp image encoder for both prior and posterior
         self.encoder = encoder(
-            self.args.variational_gen["encoder"]['output_channels'], 3, resblocks=False)
+            self.args.model["encoder"]['output_channels'], 3, resblocks=False)
         self.decoder = decoder(
-            self.args.variational_gen["encoder"]['output_channels'], 3, resblocks=False)
+            self.args.model["encoder"]['output_channels'], 3, resblocks=False)
 
         # motion encoder for posterior
         self.motion_encoder = Corr_Encoder()
 
         # latent modeling
-        self.prior_lstm = gaussian_lstm(self.args.variational_gen["encoder"]['output_channels'] + self.args.variational_gen["positional"]['output_channels'] + 4*4*4*4,
-                                        self.args.variational_gen["latent"]['output_channels'], self.args.variational_gen["latent"]['hidden_size'], self.args.variational_gen["latent"]['num_layers'], self.batch_size)
-        self.posterior_lstm = gaussian_lstm(self.args.variational_gen["encoder"]['output_channels'] + self.args.variational_gen["positional"]['output_channels'] + 4*4*4*4,
-                                            self.args.variational_gen["latent"]['output_channels'], self.args.variational_gen["latent"]['hidden_size'], self.args.variational_gen["latent"]['num_layers'], self.batch_size)
+        self.prior_lstm = gaussian_lstm(self.args.model["encoder"]['output_channels'] + self.args.model["positional"]['output_channels'] + 4*4*4*4,
+                                        self.args.model["latent"]['output_channels'], self.args.model["latent"]['hidden_size'], self.args.model["latent"]['num_layers'], self.batch_size)
+        self.posterior_lstm = gaussian_lstm(self.args.model["encoder"]['output_channels'] + self.args.model["positional"]['output_channels'] + 4*4*4*4,
+                                            self.args.model["latent"]['output_channels'], self.args.model["latent"]['hidden_size'], self.args.model["latent"]['num_layers'], self.batch_size)
 
-        self.decoder_lstm = lstm(self.args.variational_gen["latent"]['output_channels'], self.args.variational_gen["encoder"]['output_channels'],
-                                 self.args.variational_gen["latent"]['hidden_size'], self.args.variational_gen["latent"]['num_layers'], self.batch_size)
+        self.decoder_lstm = lstm(self.args.model["latent"]['output_channels'], self.args.model["encoder"]['output_channels'],
+                                 self.args.model["latent"]['hidden_size'], self.args.model["latent"]['num_layers'], self.batch_size)
 
         # positional encoding
         self.pos_encoder = Positional_encoding(
-            self.args.variational_gen["positional"]['output_channels'])
+            self.args.model["positional"]['output_channels'])
 
         if args.test != True:
             if args.train or args.evaluate:
@@ -103,7 +103,7 @@ class Variational_Gen(nn.Module):
             blur_features = self.encoder(motion_blur_image)
             blur_features = self.motion_encoder(blur_features[1][5])  # 8*8*8*8
             blur_features = blur_features.view(self.batch_size, -1)
-            
+
             self.reconstruction_loss_post = 0
             self.reconstruction_loss_prior = 0
             self.alignment_loss = 0
@@ -121,18 +121,18 @@ class Variational_Gen(nn.Module):
 
             for i in range(1, len(sharp_images)):
                 # encoder
-                if frame_use[i]:                    
+                if frame_use[i]:
                     gt_sequence[i] = sharp_images[i].detach().cpu()
 
                     sharp_features_encoding, feature_cache = self.encoder(
                         sharp_images[last_time_stamp])
                     time_info = self.pos_encoder(
                         last_time_stamp, i, len(sharp_images), self.batch_size).to(sharp_features_encoding.device)
-                   
+
                     posterior_input = torch.cat(
                         (sharp_features_encoding, blur_features, time_info), 1)
 
-                    # prior                    
+                    # prior
                     target_encoding, target_cache = self.encoder(
                         sharp_images[i])
                     time_info = self.pos_encoder(
@@ -140,13 +140,11 @@ class Variational_Gen(nn.Module):
                     prior_input = torch.cat(
                         (target_encoding, blur_features, time_info), 1)
 
-                    
-                    
                     z_i_post, mu_i_post, logvar_i_post = self.posterior_lstm(
                         posterior_input)
 
                     z_i_prior, mu_i_prior, logvar_i_prior = self.prior_lstm(
-                            prior_input)
+                        prior_input)
 
                     # decoder
                     z_decoder = self.decoder_lstm(z_i_post)
@@ -158,10 +156,10 @@ class Variational_Gen(nn.Module):
                     z_p = self.decoder_lstm(z_i_prior)
                     target_i = self.decoder(z_p, target_cache)
                     generated_sequence_prior[i] = target_i.detach().cpu()
-                
+
                     self.reconstruction_loss_post = self.reconstruction_loss_post + self.mse_criterion(
                         x_i, sharp_images[i])
-                    
+
                     self.reconstruction_loss_prior = self.reconstruction_loss_prior + self.mse_criterion(
                         target_i, sharp_images[i])
                     self.alignment_loss = self.alignment_loss + \
@@ -176,9 +174,7 @@ class Variational_Gen(nn.Module):
                     if i == len(sharp_images)-1:
                         self.last_frame_gen_loss = self.mse_criterion(
                             target_i, sharp_images[i])
-                                        
                     last_time_stamp = i
-
                 else:
                     continue
 
@@ -199,69 +195,59 @@ class Variational_Gen(nn.Module):
         elif mode == "test":
             self.init_hidden()
             seq_len = len(sharp_images)
-            
+
             # motion encoding
             blur_features = self.encoder(motion_blur_image)
             blur_features = self.motion_encoder(blur_features[1][5])  # 8*8*8*8
             blur_features = blur_features.view(self.batch_size, -1)
-            
+
             # losses
             self.reconstruction_loss_post = 0
             generated_sequence_posterior = {}
             gt_sequence = {}
-            
+
             last_image = sharp_images[0]
             print("last image shape", last_image.shape)
             print("seq_len", seq_len)
             for i in range(1, seq_len):
-                print(i)
                 last_time_stamp = i
-                current_image  = last_image
-                
+                current_image = last_image
+
                 # updating ground truth
-                print("updating ground truth")
                 gt_sequence[i] = sharp_images[i].detach().cpu()
 
                 # encoder
-                print("encoder")
-                sharp_features_encoding, feature_cache = self.encoder(current_image)
-                
+                sharp_features_encoding, feature_cache = self.encoder(
+                    current_image)
+
                 time_info = self.pos_encoder(
                     last_time_stamp, i, len(sharp_images), self.batch_size).to(sharp_features_encoding.device)
-                
+
                 posterior_input = torch.cat(
                     (sharp_features_encoding, blur_features, time_info), 1)
 
-                print("posterior")
                 # posterior
                 z_i_post, mu_i_post, logvar_i_post = self.posterior_lstm(
                     posterior_input)
 
-                print("decoder")
                 # decoder_lstm
                 z_decoder = self.decoder_lstm(z_i_post)
-                
+
                 # decoder
                 x_i = self.decoder(z_decoder, feature_cache)
-                print("x_i", x_i.shape)
-                
-                print("updating generated sequence")
+
                 generated_sequence_posterior[i] = x_i.detach().cpu()
 
                 self.reconstruction_loss_post = self.reconstruction_loss_post + self.mse_criterion(
                     x_i, sharp_images[i])
-                
-                print("updating last image")
+
                 last_image = x_i
-                    
+
             # average all losses over the sequence
             self.reconstruction_loss_post = self.reconstruction_loss_post / \
                 (len(generated_sequence_posterior) - 1)
-            
-            return [gt_sequence, generated_sequence_posterior], [self.reconstruction_loss_post]
 
-            
-            
+            return [gt_sequence, generated_sequence_posterior], [self.reconstruction_loss_post]
 
     def update_model(self):
         self.encoder_optimizer.zero_grad()
@@ -315,7 +301,7 @@ class Variational_Gen(nn.Module):
         self.prior_lstm.load_state_dict(states['prior_lstm'])
         self.decoder_lstm.load_state_dict(states['decoder_lstm'])
         self.decoder.load_state_dict(states['decoder'])
-        if self.args.test!= True:
+        if self.args.test != True:
             self.decoder_optimizer.load_state_dict(states['decoder_optimizer'])
             # self.motion_encoder_optimizer.load_state_dict(
             #     states['motion_encoder_optimizer'])
