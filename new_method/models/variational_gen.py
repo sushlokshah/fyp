@@ -96,7 +96,7 @@ class Variational_Gen(nn.Module):
             batch_size=self.batch_size)
 
     def forward(self, sharp_images, motion_blur_image, mode):
-        print(mode)
+        # print(mode)
         if mode == "train":
             self.init_hidden()
 
@@ -302,15 +302,15 @@ class Variational_Gen(nn.Module):
         self.prior_lstm.load_state_dict(states['prior_lstm'])
         self.decoder_lstm.load_state_dict(states['decoder_lstm'])
         self.decoder.load_state_dict(states['decoder'])
-        if self.args.test != True:
-            self.decoder_optimizer.load_state_dict(states['decoder_optimizer'])
-            # self.motion_encoder_optimizer.load_state_dict(
-            #     states['motion_encoder_optimizer'])
-            # self.pos_encoder_optimizer.load_state_dict(
-            #     states['pos_encoder_optimizer'])
-            self.posterior_optimizer.load_state_dict(
-                states['posterior_optimizer'])
-            self.prior_optimizer.load_state_dict(
-                states['prior_optimizer'])
-            self.decoder_lstm_optimizer.load_state_dict(
-                states['decoder_lstm_optimizer'])
+        # if self.args.test != True:
+        #     self.decoder_optimizer.load_state_dict(states['decoder_optimizer'])
+        #     # self.motion_encoder_optimizer.load_state_dict(
+        #     #     states['motion_encoder_optimizer'])
+        #     # self.pos_encoder_optimizer.load_state_dict(
+        #     #     states['pos_encoder_optimizer'])
+        #     self.posterior_optimizer.load_state_dict(
+        #         states['posterior_optimizer'])
+        #     self.prior_optimizer.load_state_dict(
+        #         states['prior_optimizer'])
+        #     self.decoder_lstm_optimizer.load_state_dict(
+        #         states['decoder_lstm_optimizer'])

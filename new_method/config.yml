@@ -34,7 +34,7 @@ test_augmentations:
   resize: [256, 256]
 
 # if resume
-weights: #C:\Users\Machine Learning GPU\Desktop\fyp\fyp\new_method\checkpoints\deblurring_final.pth
+weights: C:\Users\Machine Learning GPU\Desktop\fyp\fyp\new_method\checkpoints\deblurring_final.pth
 #  C:\Users\Machine Learning GPU\Desktop\fyp\fyp\new_method\checkpoints\deblurring_initial.pth
 
 checkpoint_dir: C:\Users\Machine Learning GPU\Desktop\fyp\fyp\new_method\checkpoints\
