@@ -284,12 +284,12 @@ class Variational_Gen(nn.Module):
         # convert psnr to loss
         
         
-        loss = self.reconstruction_loss_post + self.alignment_loss + self.latent_loss + torch.exp(-1*self.psnr_post) + (1-self.ssim_post)
+        loss = self.reconstruction_loss_post + self.alignment_loss + self.latent_loss + 1.5*torch.exp(-1*self.psnr_post) + 1.5*(1-self.ssim_post)
         loss.backward(retain_graph=True)
 
         self.prior_lstm.zero_grad()
         prior_loss = self.kl_loss_prior + \
-            self.reconstruction_loss_prior + self.last_frame_gen_loss + torch.exp(-1*self.psnr_prior) + (1-self.ssim_prior)
+            self.reconstruction_loss_prior + 1.5*self.last_frame_gen_loss + 2*torch.exp(-1*self.psnr_prior) + 2*(1-self.ssim_prior)
         prior_loss.backward(retain_graph=True)
 
         self.encoder_optimizer.step()
