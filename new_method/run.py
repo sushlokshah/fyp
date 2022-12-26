@@ -202,12 +202,15 @@ def train(model, args):
                           len(train_loader)+i, 'train')
 
             if i % args.display_step_freq == 0:
-                if args.visualize:
+                if args.visualize: 
+                    if not os.path.exists(os.path.join(args.visualization_path, "train")):
+                        os.makedirs(os.path.join(args.visualization_path, "train"))
+                    
                     if (len(generated_seq) == 3):
-                        visualize(generated_seq[1], generated_seq[0], prior=generated_seq[2], path=args.visualization_path +
+                        visualize(generated_seq[1], generated_seq[0], prior=generated_seq[2], path=args.visualization_path + "train/" +
                                   args.name + "_" + args.dataset + "_train" + "_epoch_" + str(epoch) + "_step_" + str(i) + ".png")
                     else:
-                        visualize(generated_seq[1], generated_seq[0], path=args.visualization_path + args.name +
+                        visualize(generated_seq[1], generated_seq[0], path=args.visualization_path + "train/" + args.name + 
                                   "_" + args.dataset + "_train" + "_epoch_" + str(epoch) + "_step_" + str(i) + ".png")
 
                 print("epoch: ", epoch, "step: ", i, "gen_seq_length:",
@@ -227,15 +230,18 @@ def test(model, args):
     transform = get_transform(args, 'test')
     print("training augmentation: ", transform)
 
-    training_dataset = Gopro(args, transform, "train")
-    train_loader = torch.utils.data.DataLoader(
-        training_dataset, batch_size=args.testing_parameters['batch_size'], shuffle=False, num_workers=args.num_workers, pin_memory=True, drop_last=True)
+    testing_data = Gopro(args, transform, "train")
+    test_loader = torch.utils.data.DataLoader(
+        testing_data, batch_size=args.testing_parameters['batch_size'], shuffle=False, num_workers=args.num_workers, pin_memory=True, drop_last=True)
 
     print("loaded data and dataloader")
 
     # writer = TensorboardWriter(args, None, model)
+    total_loss = 0
+    total_psnr = 0
+    total_ssim = 0
 
-    for i, data in enumerate(train_loader):
+    for i, data in enumerate(test_loader):
         seq_len = data['length'].cuda()
         blur_img = data['blur'].cuda()
         gen_seq = data['gen_seq']
@@ -247,19 +253,35 @@ def test(model, args):
         gen_seq = gen_seq.cuda()
 
         # forward pass
-        generated_seq, losses, metric = model(gen_seq, blur_img, "test")
-        print(losses)
-
-        print(metric)
+        generated_seq, losses, metric = model(gen_seq, blur_img, "test", single_image_prediction=False)
+        total_loss = total_loss + losses[0]
+        total_psnr = total_psnr + metric[0]
+        total_ssim = total_ssim + metric[1]
         # writer.update(model, posterior_loss, prior_loss, epoch *
         # len(train_loader)+i, 'train')
-        print("visualizing")
-        # print(metric)
-        blur_img_cpu = blur_img.squeeze(0).cpu().detach()
-        torch_utils.save_image(blur_img_cpu, "blur_img.png")
-        visualize(generated_seq[1], generated_seq[0], path="generated_seq.png")
-        break
-
+        print("losses: ", losses,"metric: ", metric)
+        
+        if args.visualize: 
+            if not os.path.exists(os.path.join(args.visualization_path, "test")):
+                os.makedirs(os.path.join(args.visualization_path, "test"))
+            
+            if not os.path.exists(os.path.join(args.visualization_path, "test/seq")):
+                os.makedirs(os.path.join(args.visualization_path, "test/seq"))
+            
+            if not os.path.exists(os.path.join(args.visualization_path, "test/blur")):
+                os.makedirs(os.path.join(args.visualization_path, "test/blur"))
+            
+            blur_img_cpu = blur_img.squeeze(0).cpu().detach()
+            torch_utils.save_image(blur_img_cpu, args.visualization_path + "test/blur/" +
+                            args.name + "_" + args.dataset + "_train" + "_step_" + str(i) + ".png")
+            
+            if (len(generated_seq) == 3):
+                visualize(generated_seq[1], generated_seq[0], prior=generated_seq[2], path=args.visualization_path + "test/seq/" +
+                            args.name + "_" + args.dataset + "_train" + "_step_" + str(i) + ".png")
+            else:
+                visualize(generated_seq[1], generated_seq[0], path=args.visualization_path + "test/seq/" + args.name + 
+                            "_" + args.dataset + "_train" + "_step_" + str(i) + ".png")
+    print("total loss: ", total_loss/len(test_loader), "total psnr: ", total_psnr/len(test_loader), "total ssim: ", total_ssim/len(test_loader))
     # writer.close()
 
 
