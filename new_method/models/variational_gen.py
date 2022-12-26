@@ -226,12 +226,12 @@ class Variational_Gen(nn.Module):
         blur_features = self.motion_encoder(blur_features[1][5])  # 8*8*8*8
         blur_features = blur_features.view(self.batch_size, -1)
 
-        self.reconstruction_loss_post = 0
-        self.reconstruction_loss_prior = 0
-        self.alignment_loss = 0
-        self.kl_loss_prior = 0
-        self.latent_loss = 0
-        self.last_frame_gen_loss = 0
+        self.reconstruction_loss_post = torch.tensor(0)
+        self.reconstruction_loss_prior = torch.tensor(0)
+        self.alignment_loss = torch.tensor(0)
+        self.kl_loss_prior = torch.tensor(0)
+        self.latent_loss = torch.tensor(0)
+        self.last_frame_gen_loss = torch.tensor(0)
         generated_sequence_posterior = {}
         generated_sequence_prior = {}
         gt_sequence = {}
