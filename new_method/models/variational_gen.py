@@ -334,7 +334,7 @@ class Variational_Gen(nn.Module):
         self.ssim_prior = self.ssim_prior / \
             (len(generated_sequence_posterior) - 1)
 
-        return [gt_sequence, generated_sequence_posterior, generated_sequence_prior], [self.reconstruction_loss_post, self.alignment_loss, self.latent_loss, self.kl_loss_prior, self.reconstruction_loss_prior, self.last_frame_gen_loss], [self.psnr_post, self.ssim_post, self.psnr_prior, self.ssim_prior]
+        return [gt_sequence, generated_sequence_posterior, generated_sequence_prior], [self.reconstruction_loss_post.item(), self.alignment_loss.item(), self.latent_loss.item(), self.kl_loss_prior.item(), self.reconstruction_loss_prior.item(), self.last_frame_gen_loss.item()], [self.psnr_post.item(), self.ssim_post.item(), self.psnr_prior.item(), self.ssim_prior.item()]
 
     def single_image_testing(self, sharp_images, motion_blur_image):
         self.init_hidden()
@@ -404,7 +404,7 @@ class Variational_Gen(nn.Module):
         self.psnr_post = self.psnr_post / \
             (len(generated_sequence_posterior) - 1)
 
-        return [gt_sequence, generated_sequence_posterior], [self.reconstruction_loss_post], [self.psnr_post, self.ssim_post]
+        return [gt_sequence, generated_sequence_posterior], [self.reconstruction_loss_post.item()], [self.psnr_post.item(), self.ssim_post.item()]
 
     def sequence_testing(self, sharp_images, motion_blur_image):
         self.init_hidden()
@@ -467,7 +467,7 @@ class Variational_Gen(nn.Module):
         self.ssim_post = self.ssim_post / \
             (len(generated_sequence_posterior) - 1)
 
-        return [gt_sequence, generated_sequence_posterior], [self.reconstruction_loss_post], [self.psnr_post, self.ssim_post]
+        return [gt_sequence, generated_sequence_posterior], [self.reconstruction_loss_post.item()], [self.psnr_post.item(), self.ssim_post.item()]
 
     def forward(self, sharp_images, motion_blur_image, mode, single_image_prediction=False):
         # print(mode)
