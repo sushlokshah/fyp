@@ -185,14 +185,14 @@ def train(model, args):
             gen_seq = data['gen_seq']
 
             # for varing length generation
-            step_size = np.random.randint(1, 3)
+            step_size = np.random.randint(1, 4)
             gen_seq = gen_seq.permute(1, 0, 2, 3, 4)
             gen_seq = gen_seq[::step_size]
             gen_seq = gen_seq.cuda()
 
             # forward pass
             generated_seq, losses, metric = model(
-                gen_seq, blur_img, "train", single_image_prediction=False)
+                gen_seq, blur_img, "train", single_image_prediction=True)
 
             # print(generated_seq[0][1].shape)
             # loss and backprop

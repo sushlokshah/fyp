@@ -243,6 +243,7 @@ class Variational_Gen(nn.Module):
         frame_use = np.random.uniform(
             0, 1, len(sharp_images)) >= self.prob_for_frame_drop
         last_time_stamp = 0
+        print(frame_use)
         initial_frame = sharp_images[last_time_stamp]
         for i in range(1, seq_len):
             if frame_use[i]:

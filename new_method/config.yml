@@ -10,8 +10,8 @@ eval_step_freq: 10
 #about training and testing
 evaluate: false
 sweep: false
-test: true
-train: false
+test: false
+train: true
 
 # data path
 dataset: gopro
@@ -96,9 +96,9 @@ hyperparameters:
 # hyperparameters for training
 training_parameters:
   lr: 0.005
-  batch_size: 6
+  batch_size: 8
   num_epochs: 10
-  prob_for_frame_drop: 0.2
+  prob_for_frame_drop: 0.1
 
 # hyperparameters for testing
 testing_parameters:
