@@ -99,6 +99,7 @@ training_parameters:
   batch_size: 8
   num_epochs: 10
   prob_for_frame_drop: 0.1
+  dropout: 0.2
 
 # hyperparameters for testing
 testing_parameters:
@@ -121,24 +122,23 @@ variational_gen:
     output_channels: 256
     hidden_size: 256
 
-
 attention_gen:
   sharp_encoder:
     output_channels: 128
     input_channels: 3
     nheads: 8
-  
+
   blur_encoder:
     output_channels: 128
     input_channels: 3
     nheads: 8
-  
+
   positional:
     output_channels: 16
-  
+
   feature_forcasting:
-    nhead: 8
-  
+    nheads: 8
+
   decoder:
     output_channels: 128
     input_channels: 3
