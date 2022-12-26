@@ -107,7 +107,7 @@ class Attention_Gen(nn.Module):
         self.psnr_post = 0
         self.ssim_post = 0
         last_time_stamp = 0
-        init_flow = torch.zeros((self.batch_size, 2, sharp_images.shape[2]//4,sharp_images.shape[3]//4)).to(sharp_images.device)
+        init_flow = torch.zeros((self.batch_size, 2, sharp_images[0].shape[2]//4,sharp_images[0].shape[3]//4)).to(sharp_images.device)
         for i in range(1, len(sharp_images)):
             if frame_use[i]:
                 gt_sequence[i] = sharp_images[i].detach().cpu()
