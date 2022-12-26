@@ -36,7 +36,9 @@ class Attention_Gen(nn.Module):
             input_channels
             nheads
         
-            
+        decoder:
+            output_channels
+            input_channels
             
     """
     def __init__(self, args, batch_size=2, prob_for_frame_drop=0, lr=0.001,dropout = 0):
@@ -73,8 +75,10 @@ class Attention_Gen(nn.Module):
         self.pos_encoder = Positional_encoding(
             self.args.attention_gen["positional"]['output_channels'])
         
-        self.feature_forcasting = Feature_forcaster(self.args.attention_gen['feature_forcasting']['output_channels'], self.args.attention_gen['feature_forcasting']['input_channels'], self.args.attention_gen['feature_forcasting']['nheads'],self.dropout)
-        
+        history_in_channels = self.args.attention_gen['blur_encoder']['output_channels'] + self.args.attention_gen['positional']['output_channels']
+        current_in_channels = self.args.attention_gen['sharp_encoder']['output_channels'] + self.args.attention_gen['positional']['output_channels'] + 2
+        #  history_in_channels,current_in_channels, out_channels, nheads, dropout = 0
+        self.feature_forcasting = Feature_forcaster(history_in_channels, current_in_channels, self.args.attention_gen['sharp_encoder']['output_channels'], self.args.attention_gen['feature_forcasting']['nheads'], self.dropout)
         self.decoder = Refinement_Decoder(self.args.attention_gen['decoder']['output_channels'], self.args.attention_gen['decoder']['input_channels'])
         
         self.mse_criterion = nn.MSELoss()

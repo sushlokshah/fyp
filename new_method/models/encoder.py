@@ -163,23 +163,23 @@ class Feature_extractor(nn.Module):
     
 
 class Feature_forcaster(nn.Module):
-    def __init__(self, in_channels, out_channels, nheads, dropout = 0):
+    def __init__(self, history_in_channels,current_in_channels, out_channels, nheads, dropout = 0):
         super(Feature_forcaster, self).__init__()
         
         self.feature_projector1 = nn.Sequential(
-            nn.Linear(in_channels, in_channels),
+            nn.Linear(current_in_channels, current_in_channels),
             nn.ReLU(inplace=True),
-            nn.Linear(in_channels, in_channels),
+            nn.Linear(current_in_channels, current_in_channels),
             nn.ReLU(inplace=True),
-            nn.Linear(in_channels, out_channels),
+            nn.Linear(current_in_channels, out_channels),
             nn.ReLU(inplace=True)
         )
         self.feature_projector2 = nn.Sequential(
-            nn.Linear(in_channels, in_channels),
+            nn.Linear(history_in_channels, history_in_channels),
             nn.ReLU(inplace=True),
-            nn.Linear(in_channels, in_channels),
+            nn.Linear(history_in_channels, history_in_channels),
             nn.ReLU(inplace=True),
-            nn.Linear(in_channels, out_channels),
+            nn.Linear(history_in_channels, out_channels),
             nn.ReLU(inplace=True)
         )
         
