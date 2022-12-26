@@ -235,10 +235,10 @@ class Variational_Gen(nn.Module):
         generated_sequence_posterior = {}
         generated_sequence_prior = {}
         gt_sequence = {}
-        self.psnr_post = 0
-        self.ssim_post = 0
-        self.psnr_prior = 0
-        self.ssim_prior = 0
+        self.psnr_post = torch.tensor(0)
+        self.ssim_post = torch.tensor(0)
+        self.psnr_prior = torch.tensor(0)
+        self.ssim_prior = torch.tensor(0)
         # sequence generation
         frame_use = np.random.uniform(
             0, 1, len(sharp_images)) >= self.prob_for_frame_drop
