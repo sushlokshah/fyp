@@ -118,7 +118,7 @@ class Attention_Gen(nn.Module):
                 init_time_info = self.pos_encoder(
                     last_time_stamp, last_time_stamp, len(sharp_images), self.batch_size).to(encoded_sharp_init_features.device)
                 # stack inital time info with each feature from the encoder
-                init_time_info = init_time_info.repeat(encoded_sharp_init_features.shape[0], 1, encoded_sharp_init_features.shape[2], encoded_sharp_init_features.shape[3])
+                init_time_info = init_time_info.repeat(1, 1, encoded_sharp_init_features.shape[2], encoded_sharp_init_features.shape[3])
                 print("init_time_info", init_time_info.shape)	
                 print("attention_sharp_init_features", attn_sharp_init_features.shape)
                 print("init_flow", init_flow.shape)	
@@ -130,7 +130,7 @@ class Attention_Gen(nn.Module):
                 # genration positional encoding
                 gen_time_info = self.pos_encoder(
                     last_time_stamp, i, len(sharp_images), self.batch_size).to(encoded_sharp_init_features.device)
-                gen_time_info = gen_time_info.repeat(encoded_sharp_init_features.shape[0], 1, encoded_sharp_init_features.shape[2], encoded_sharp_init_features.shape[3])
+                gen_time_info = gen_time_info.repeat(1, 1, encoded_sharp_init_features.shape[2], encoded_sharp_init_features.shape[3])
                 
                 # distribution for the feature forcasting corresponding to the current time stamp
                 blur_feature_info = torch.cat((attn_blur_features, gen_time_info), dim=1)
@@ -200,7 +200,10 @@ class Attention_Gen(nn.Module):
                 init_time_info = self.pos_encoder(
                     last_time_stamp, last_time_stamp, len(sharp_images), self.batch_size).to(encoded_sharp_init_features.device)
                 # stack inital time info with each feature from the encoder
-                init_time_info = init_time_info.repeat(encoded_sharp_init_features.shape[0], 1, encoded_sharp_init_features.shape[2], encoded_sharp_init_features.shape[3])
+                print("init_time_info", init_time_info.shape)	
+                print("attention_sharp_init_features", attn_sharp_init_features.shape)
+                print("init_flow", init_flow.shape)	
+                init_time_info = init_time_info.repeat(1, 1, encoded_sharp_init_features.shape[2], encoded_sharp_init_features.shape[3])
                                
                 # inital feature info for feature forcasting
                 init_feature_info = torch.cat( (attn_sharp_init_features, init_time_info,init_flow), dim=1)
@@ -208,7 +211,7 @@ class Attention_Gen(nn.Module):
                 # generation positional encoding
                 gen_time_info = self.pos_encoder(
                     last_time_stamp, i, len(sharp_images), self.batch_size).to(encoded_sharp_init_features.device)
-                gen_time_info = gen_time_info.repeat(encoded_sharp_init_features.shape[0], 1, encoded_sharp_init_features.shape[2], encoded_sharp_init_features.shape[3])
+                gen_time_info = gen_time_info.repeat(1, 1, encoded_sharp_init_features.shape[2], encoded_sharp_init_features.shape[3])
                 
                 # distribution for the feature forcasting corresponding to the current time stamp
                 blur_feature_info = torch.cat((attn_blur_features, gen_time_info), dim=1)
