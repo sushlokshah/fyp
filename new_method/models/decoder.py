@@ -64,6 +64,7 @@ class decoder(nn.Module):
         self.resblock61 = ResnetBlock(
             output_channels, kernel_size=3)  # 256*256*3
 
+        # self.refinement = refinement_module(output_channels)
         # self.convT2 = nn.ConvTranspose2d(
         #     2*out_ch, output_channels, 3, 1, 1)  # 256*256*3
 

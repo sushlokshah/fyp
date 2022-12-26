@@ -60,6 +60,9 @@ class Attention_Gen(nn.Module):
             else:
                 self.prob_for_frame_drop = prob_for_frame_drop
                 self.lr = lr
+            
+            if args.optimizer["optimizer_name"] == "AdamW":
+                self.optimizer = optim.AdamW
         else:
             self.prob_for_frame_drop = 0
             
@@ -73,7 +76,20 @@ class Attention_Gen(nn.Module):
         self.feature_forcasting = Feature_forcaster(self.args.attention_gen['feature_forcasting']['output_channels'], self.args.attention_gen['feature_forcasting']['input_channels'], self.args.attention_gen['feature_forcasting']['nheads'],self.dropout)
         
         self.decoder = Refinement_Decoder(self.args.attention_gen['decoder']['output_channels'], self.args.attention_gen['decoder']['input_channels'])
-
+        
+        self.mse_criterion = nn.MSELoss()
+        self.ssim_criterion = SSIM()
+        self.psnr_criterion = PSNR()
+        
+        if args.test != True:
+            self.init_optimizer()
+            
+    def init_optimizer(self):
+        self.sharp_encoder_optimizer = self.optimizer(self.sharp_encoder.parameters(), lr=self.lr, weight_decay=self.args.optimizer["weight_decay"], eps=float(self.args.optimizer["eps"]))
+        self.blur_encoder_optimizer = self.optimizer(self.blur_encoder.parameters(), lr=self.lr, weight_decay=self.args.optimizer["weight_decay"], eps=float(self.args.optimizer["eps"]))
+        self.feature_forcasting_optimizer = self.optimizer(self.feature_forcasting.parameters(), lr=self.lr, weight_decay=self.args.optimizer["weight_decay"], eps=float(self.args.optimizer["eps"]))
+        self.decoder_optimizer = self.optimizer(self.decoder.parameters(), lr=self.lr, weight_decay=self.args.optimizer["weight_decay"], eps=float(self.args.optimizer["eps"]))
+                
     def sequence_training(self, sharp_images, motion_blur_image):
         # blur_encoder
         attn_blur_features, blur_attn_map, encoded_blur_features, blur_feature_scale = self.blur_encoder(motion_blur_image)
@@ -83,85 +99,210 @@ class Attention_Gen(nn.Module):
         
         generated_sequence = {}
         gt_sequence = {}
-        
+        self.reconstruction_loss_post = 0
+        self.psnr_post = 0
+        self.ssim_post = 0
         last_time_stamp = 0
         init_flow = torch.zeros((self.batch_size, 2, sharp_images.shape[2]//4,sharp_images.shape[3]//4)).to(sharp_images.device)
         for i in range(1, len(sharp_images)):
-                if frame_use[i]:
-                    gt_sequence[i] = sharp_images[i].detach().cpu()
-                    # inital sharp encoder
-                    attn_sharp_init_features, init_sharp_attn_map, encoded_sharp_init_features, sharp_init_feature_scale = self.sharp_encoder(sharp_images[last_time_stamp])
-                    
-                    # inital positional encoding
-                    init_time_info = self.pos_encoder(
-                        last_time_stamp, last_time_stamp, len(sharp_images), self.batch_size).to(encoded_sharp_init_features.device)
-                    # stack inital time info with each feature from the encoder
-                    init_time_info = init_time_info.repeat(1, 1, encoded_sharp_init_features[0], encoded_sharp_init_features[1])
-                    
-                    # inital feature info for feature forcasting
-                    init_feature_info = torch.cat( (attn_sharp_init_features, init_time_info,init_flow), dim=1)
-                    
-                    
-                    
-                    # genration positional encoding
-                    gen_time_info = self.pos_encoder(
-                        last_time_stamp, i, len(sharp_images), self.batch_size).to(encoded_sharp_init_features.device)
-                    gen_time_info = gen_time_info.repeat(1, 1, encoded_sharp_init_features[0], encoded_sharp_init_features[1])
-                    
-                    # distribution for the feature forcasting corresponding to the current time stamp
-                    blur_feature_info = torch.cat((attn_blur_features, gen_time_info), dim=1)
-                    
-                    
-                    # feature forcasting
-                    attn_features_i, correlation_map_i, coords_xy_i = self.feature_forcasting(init_feature_info, blur_feature_info, attn_sharp_init_features)
-                    
-                    # warping sharp_image_features based on the flow
-                    # scale  = 1/4
-                    sharp_init_feature_scale[2] = warp(sharp_init_feature_scale[2], coords_xy_i)
-                    # scale = 1/2
-                    # upsample the flow to the size of the feature map
-                    new_size = (2* coords_xy_i.shape[2], 2* coords_xy_i.shape[3])
-                    coords_xy_i_2 = 2 * F.interpolate(coords_xy_i, size=new_size, mode='bilinear', align_corners=True)
-                    sharp_init_feature_scale[1] = warp(sharp_init_feature_scale[1], coords_xy_i_2)
-                    # scale = 1
-                    # upsample the flow to the size of the feature map
-                    new_size = (2* coords_xy_i_2.shape[2], 2* coords_xy_i_2.shape[3])
-                    coords_xy_i_4 = 2 * F.interpolate(coords_xy_i_2, size=new_size, mode='bilinear', align_corners=True)
-                    sharp_init_feature_scale[0] = warp(sharp_init_feature_scale[0], coords_xy_i_4)
-                    #refinement decoder
-                    gen_sharp_image = self.decoder(attn_features_i, sharp_init_feature_scale) 
-                    generated_sequence[i] = gen_sharp_image.detach().cpu()
-                    
-                    init_flow = coords_xy_i -  init_flow
-                    # normalized flow
-                    init_flow[:,0,:,:] = init_flow[:,0,:,:] / (sharp_images.shape[3]//4)
-                    init_flow[:,1,:,:] = init_flow[:,1,:,:] / (sharp_images.shape[2]//4)
-                    last_time_stamp = i
-                    
-                else:
-                    continue
-
-        return generated_sequence, gt_sequence
+            if frame_use[i]:
+                gt_sequence[i] = sharp_images[i].detach().cpu()
+                # inital sharp encoder
+                attn_sharp_init_features, init_sharp_attn_map, encoded_sharp_init_features, sharp_init_feature_scale = self.sharp_encoder(sharp_images[last_time_stamp])
+                
+                # inital positional encoding
+                init_time_info = self.pos_encoder(
+                    last_time_stamp, last_time_stamp, len(sharp_images), self.batch_size).to(encoded_sharp_init_features.device)
+                # stack inital time info with each feature from the encoder
+                init_time_info = init_time_info.repeat(1, 1, encoded_sharp_init_features[0], encoded_sharp_init_features[1])
+                
+                # inital feature info for feature forcasting
+                init_feature_info = torch.cat( (attn_sharp_init_features, init_time_info,init_flow), dim=1)
+                
+                
+                
+                # genration positional encoding
+                gen_time_info = self.pos_encoder(
+                    last_time_stamp, i, len(sharp_images), self.batch_size).to(encoded_sharp_init_features.device)
+                gen_time_info = gen_time_info.repeat(1, 1, encoded_sharp_init_features[0], encoded_sharp_init_features[1])
+                
+                # distribution for the feature forcasting corresponding to the current time stamp
+                blur_feature_info = torch.cat((attn_blur_features, gen_time_info), dim=1)
+                
+                
+                # feature forcasting
+                attn_features_i, correlation_map_i, coords_xy_i = self.feature_forcasting(init_feature_info, blur_feature_info, attn_sharp_init_features)
+                
+                # warping sharp_image_features based on the flow
+                # scale  = 1/4
+                sharp_init_feature_scale[2] = warp(sharp_init_feature_scale[2], coords_xy_i)
+                # scale = 1/2
+                # upsample the flow to the size of the feature map
+                new_size = (2* coords_xy_i.shape[2], 2* coords_xy_i.shape[3])
+                coords_xy_i_2 = 2 * F.interpolate(coords_xy_i, size=new_size, mode='bilinear', align_corners=True)
+                sharp_init_feature_scale[1] = warp(sharp_init_feature_scale[1], coords_xy_i_2)
+                # scale = 1
+                # upsample the flow to the size of the feature map
+                new_size = (2* coords_xy_i_2.shape[2], 2* coords_xy_i_2.shape[3])
+                coords_xy_i_4 = 2 * F.interpolate(coords_xy_i_2, size=new_size, mode='bilinear', align_corners=True)
+                sharp_init_feature_scale[0] = warp(sharp_init_feature_scale[0], coords_xy_i_4)
+                #refinement decoder
+                gen_sharp_image = self.decoder(attn_features_i, sharp_init_feature_scale) 
+                generated_sequence[i] = gen_sharp_image.detach().cpu()
+                
+                self.reconstruction_loss_post = self.reconstruction_loss_post + self.mse_criterion(gen_sharp_image, sharp_images[i])
+                self.ssim_post = self.ssim_post + self.ssim_criterion(gen_sharp_image, sharp_images[i])
+                self.psnr_post = self.psnr_post + self.psnr_criterion(gen_sharp_image, sharp_images[i])
+                
+                init_flow = coords_xy_i -  init_flow
+                # normalized flow
+                init_flow[:,0,:,:] = init_flow[:,0,:,:] / (sharp_images.shape[3]//4)
+                init_flow[:,1,:,:] = init_flow[:,1,:,:] / (sharp_images.shape[2]//4)
+                last_time_stamp = i
+                
+            else:
+                continue
+        
+        self.reconstruction_loss_post = self.reconstruction_loss_post / (len(generated_sequence) - 1)
+        self.psnr_post = self.psnr_post / (len(generated_sequence) - 1)
+        self.ssim = self.ssim_post / (len(generated_sequence) - 1)
+        
+        return [gt_sequence, generated_sequence], [self.reconstruction_loss_post],[self.psnr_post, self.ssim_post]
         
     def single_image_training(self, sharp_images, motion_blur_image):
-        return NotImplementedError
-    
-    def sequence_testing(self, sharp_images, motion_blur_image):
-        return NotImplementedError
-    
-    def single_image_testing(self, sharp_images, motion_blur_image):
-        return NotImplementedError   
+        # blur_encoder
+        attn_blur_features, blur_attn_map, encoded_blur_features, blur_feature_scale = self.blur_encoder(motion_blur_image)
+        
+        frame_use = np.random.uniform(
+                0, 1, len(sharp_images)) >= self.prob_for_frame_drop
+        
+        generated_sequence = {}
+        gt_sequence = {}
+        self.reconstruction_loss_post = 0
+        self.psnr_post = 0
+        self.ssim_post = 0
+        last_time_stamp = 0
+        init_flow = torch.zeros((self.batch_size, 2, sharp_images.shape[2]//4,sharp_images.shape[3]//4)).to(sharp_images.device)
+        initial_frame = sharp_images[last_time_stamp]
+        for i in range(1, len(sharp_images)):
+            if frame_use[i]:
+                gt_sequence[i] = sharp_images[i].detach().cpu()
+                # inital sharp encoder
+                attn_sharp_init_features, init_sharp_attn_map, encoded_sharp_init_features, sharp_init_feature_scale = self.sharp_encoder(initial_frame)
+                
+                # inital positional encoding
+                init_time_info = self.pos_encoder(
+                    last_time_stamp, last_time_stamp, len(sharp_images), self.batch_size).to(encoded_sharp_init_features.device)
+                # stack inital time info with each feature from the encoder
+                init_time_info = init_time_info.repeat(1, 1, encoded_sharp_init_features[0], encoded_sharp_init_features[1])
+                
+                # inital feature info for feature forcasting
+                init_feature_info = torch.cat( (attn_sharp_init_features, init_time_info,init_flow), dim=1)
+                
+                # generation positional encoding
+                gen_time_info = self.pos_encoder(
+                    last_time_stamp, i, len(sharp_images), self.batch_size).to(encoded_sharp_init_features.device)
+                gen_time_info = gen_time_info.repeat(1, 1, encoded_sharp_init_features[0], encoded_sharp_init_features[1])
+                
+                # distribution for the feature forcasting corresponding to the current time stamp
+                blur_feature_info = torch.cat((attn_blur_features, gen_time_info), dim=1)
+                
+                
+                # feature forcasting
+                attn_features_i, correlation_map_i, coords_xy_i = self.feature_forcasting(init_feature_info, blur_feature_info, attn_sharp_init_features)
+                
+                # warping sharp_image_features based on the flow
+                # scale  = 1/4
+                sharp_init_feature_scale[2] = warp(sharp_init_feature_scale[2], coords_xy_i)
+                # scale = 1/2
+                # upsample the flow to the size of the feature map
+                new_size = (2* coords_xy_i.shape[2], 2* coords_xy_i.shape[3])
+                coords_xy_i_2 = 2 * F.interpolate(coords_xy_i, size=new_size, mode='bilinear', align_corners=True)
+                sharp_init_feature_scale[1] = warp(sharp_init_feature_scale[1], coords_xy_i_2)
+                # scale = 1
+                # upsample the flow to the size of the feature map
+                new_size = (2* coords_xy_i_2.shape[2], 2* coords_xy_i_2.shape[3])
+                coords_xy_i_4 = 2 * F.interpolate(coords_xy_i_2, size=new_size, mode='bilinear', align_corners=True)
+                sharp_init_feature_scale[0] = warp(sharp_init_feature_scale[0], coords_xy_i_4)
+                #refinement decoder
+                gen_sharp_image = self.decoder(attn_features_i, sharp_init_feature_scale) 
+                generated_sequence[i] = gen_sharp_image.detach().cpu()
+                
+                self.reconstruction_loss_post = self.reconstruction_loss_post + self.mse_criterion(gen_sharp_image, sharp_images[i])
+                self.ssim_post = self.ssim_post + self.ssim_criterion(gen_sharp_image, sharp_images[i])
+                self.psnr_post = self.psnr_post + self.psnr_criterion(gen_sharp_image, sharp_images[i])
+                
+                init_flow = coords_xy_i -  init_flow
+                # normalized flow
+                init_flow[:,0,:,:] = init_flow[:,0,:,:] / (sharp_images.shape[3]//4)
+                init_flow[:,1,:,:] = init_flow[:,1,:,:] / (sharp_images.shape[2]//4)
+                last_time_stamp = i
+                initial_frame = gen_sharp_image
+                
+            else:
+                continue
+        
+        self.reconstruction_loss_post = self.reconstruction_loss_post / (len(generated_sequence) - 1)
+        self.psnr_post = self.psnr_post / (len(generated_sequence) - 1)
+        self.ssim = self.ssim_post / (len(generated_sequence) - 1)
+        
+        return [gt_sequence, generated_sequence], [self.reconstruction_loss_post],[self.psnr_post, self.ssim_post]
+
 
     def forward(self, sharp_images, motion_blur_image, mode, single_image_prediction=False):
         if mode == "train":
             if single_image_prediction:
-                gen_seq, losses = self.single_image_training(sharp_images, motion_blur_image)
+                gen_seq, losses, metric = self.single_image_training(sharp_images, motion_blur_image)
             else:
-                gen_seq, losses = self.sequence_training(sharp_images, motion_blur_image)
+                gen_seq, losses, metric = self.sequence_training(sharp_images, motion_blur_image)
         else:
             if single_image_prediction:
-                gen_seq, losses = self.single_image_testing(sharp_images, motion_blur_image)
+                gen_seq, losses, metric = self.single_image_training(sharp_images, motion_blur_image)
             else:
-                gen_seq, losses = self.sequence_testing(sharp_images, motion_blur_image)
+                gen_seq, losses, metric = self.single_image_training(sharp_images, motion_blur_image)
          
-        return gen_seq, losses
+        return gen_seq, losses, metric
+    
+    def update_model(self):
+        # set all optimizers to zero grad
+        self.sharp_encoder_optimizer.zero_grad()
+        self.blur_encoder_optimizer.zero_grad()
+        self.feature_forcasting_optimizer.zero_grad()
+        self.decoder_optimizer.zero_grad()
+        
+        loss = self.reconstruction_loss_post + 1.5*torch.exp(-1*self.psnr_post) + 1.5*(1-self.ssim_post)
+        loss.backward(retain_graph=True)
+        
+        self.sharp_encoder_optimizer.step()
+        self.blur_encoder_optimizer.step()
+        self.feature_forcasting_optimizer.step()
+        self.decoder_optimizer.step()
+        
+        return loss
+    
+    def save(self, fname):
+        states = {
+            'sharp_encoder': self.sharp_encoder.state_dict(),
+            'blur_encoder': self.blur_encoder.state_dict(),
+            'feature_forcasting': self.feature_forcasting.state_dict(),
+            'decoder': self.decoder.state_dict(),
+            
+            'sharp_encoder_optimizer': self.sharp_encoder_optimizer.state_dict(),
+            'blur_encoder_optimizer': self.blur_encoder_optimizer.state_dict(),
+            'feature_forcasting_optimizer': self.feature_forcasting_optimizer.state_dict(),
+            'decoder_optimizer': self.decoder_optimizer.state_dict(),
+        }   
+        torch.save(states, fname)
+        
+    def load(self, fname):
+        states = torch.load(fname)
+        self.sharp_encoder.load_state_dict(states['sharp_encoder'])
+        self.blur_encoder.load_state_dict(states['blur_encoder'])
+        self.feature_forcasting.load_state_dict(states['feature_forcasting'])
+        self.decoder.load_state_dict(states['decoder'])
+        
+        # self.sharp_encoder_optimizer.load_state_dict(states['sharp_encoder_optimizer'])
+        # self.blur_encoder_optimizer.load_state_dict(states['blur_encoder_optimizer'])
+        # self.feature_forcasting_optimizer.load_state_dict(states['feature_forcasting_optimizer'])
+        # self.decoder_optimizer.load_state_dict(states['decoder_optimizer'])
+    

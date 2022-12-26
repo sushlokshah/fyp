@@ -191,13 +191,13 @@ def train(model, args):
             gen_seq = gen_seq.cuda()
 
             # forward pass
-            generated_seq, losses, metric = model(gen_seq, blur_img, "train")
+            generated_seq, losses, metric = model(gen_seq, blur_img, "train", single_image_prediction = False)
 
             # print(generated_seq[0][1].shape)
             # loss and backprop
-            posterior_loss, prior_loss = model.update_model()
+            losses = model.update_model()
 
-            writer.update(model, posterior_loss, prior_loss, epoch *
+            writer.update(model, losses[0], losses[-1], epoch *
                           len(train_loader)+i, 'train')
 
             if i % args.display_step_freq == 0:
@@ -209,8 +209,7 @@ def train(model, args):
                         visualize(generated_seq[1], generated_seq[0], path=args.visualization_path + args.name +
                                   "_" + args.dataset + "_train" + "_epoch_" + str(epoch) + "_step_" + str(i) + ".png")
 
-                print("epoch: ", epoch, "step: ", i, "posterior_loss: ",
-                      posterior_loss, "prior_loss: ", prior_loss, "gen_seq_length:", len(generated_seq[0]))
+                print("epoch: ", epoch, "step: ", i, "gen_seq_length:", len(generated_seq[0]), "losses: ",losses)
                 print("metric: ", metric)
             if (i+args.save_step_freq) % args.save_step_freq == 0:
                 print("saving model")
