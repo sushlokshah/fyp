@@ -191,7 +191,7 @@ def train(model, args):
             gen_seq = gen_seq.cuda()
 
             # forward pass
-            generated_seq, losses = model(gen_seq, blur_img, "train")
+            generated_seq, losses, metric = model(gen_seq, blur_img, "train")
 
             # print(generated_seq[0][1].shape)
             # loss and backprop
@@ -210,8 +210,8 @@ def train(model, args):
                                   "_" + args.dataset + "_train" + "_epoch_" + str(epoch) + "_step_" + str(i) + ".png")
 
                 print("epoch: ", epoch, "step: ", i, "posterior_loss: ",
-                      posterior_loss, "prior_loss: ", prior_loss, "gen_seq_length:", len(generated_seq))
-
+                      posterior_loss, "prior_loss: ", prior_loss, "gen_seq_length:", len(generated_seq[0]))
+                print("metric: ", metric)
             if (i+args.save_step_freq) % args.save_step_freq == 0:
                 print("saving model")
                 model.save(args.checkpoint_dir + args.name +

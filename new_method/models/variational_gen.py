@@ -67,6 +67,11 @@ class Variational_Gen(nn.Module):
         self.latent_mse = nn.MSELoss()  # recon and cpc
         self.kl_criterion = KLCriterion()
         self.align_criterion = KLCriterion()
+        self.ssim_criterion = SSIM()
+        self.psnr_criterion = PSNR()
+        
+        
+        
 
         if args.test != True:
             self.init_optimizer()
@@ -114,7 +119,10 @@ class Variational_Gen(nn.Module):
             generated_sequence_posterior = {}
             generated_sequence_prior = {}
             gt_sequence = {}
-
+            self.psnr_post = 0
+            self.ssim_post = 0
+            self.psnr_prior = 0
+            self.ssim_prior = 0
             # sequence generation
             frame_use = np.random.uniform(
                 0, 1, len(sharp_images)) >= self.prob_for_frame_drop
@@ -161,6 +169,10 @@ class Variational_Gen(nn.Module):
                     self.reconstruction_loss_post = self.reconstruction_loss_post + self.mse_criterion(
                         x_i, sharp_images[i])
 
+                    self.psnr_post = self.psnr_post + self.psnr_criterion(x_i, sharp_images[i])
+                    self.ssim_post = self.ssim_post + self.ssim_criterion(x_i, sharp_images[i])
+
+
                     self.reconstruction_loss_prior = self.reconstruction_loss_prior + self.mse_criterion(
                         target_i, sharp_images[i])
                     self.alignment_loss = self.alignment_loss + \
@@ -171,6 +183,9 @@ class Variational_Gen(nn.Module):
                             mu_i_prior, logvar_i_prior, torch.tensor(0), torch.tensor(0))
                     self.latent_loss = self.latent_loss + \
                         self.latent_mse(z_decoder, target_encoding)
+                        
+                    self.psnr_prior = self.psnr_prior + self.psnr_criterion(target_i, sharp_images[i])
+                    self.ssim_prior = self.ssim_prior + self.ssim_criterion(target_i, sharp_images[i])
 
                     if i == len(sharp_images)-1:
                         self.last_frame_gen_loss = self.mse_criterion(
@@ -190,8 +205,17 @@ class Variational_Gen(nn.Module):
                 (len(generated_sequence_posterior) - 1)
             self.latent_loss = self.latent_loss / \
                 (len(generated_sequence_posterior) - 1)
+            self.psnr_post = self.psnr_post / \
+                (len(generated_sequence_posterior) - 1)
+            self.ssim_post = self.ssim_post / \
+                (len(generated_sequence_posterior) - 1)
+            self.psnr_prior = self.psnr_prior / \
+                (len(generated_sequence_posterior) - 1)
+            self.ssim_prior = self.ssim_prior / \
+                (len(generated_sequence_posterior) - 1)
+                
 
-            return [gt_sequence, generated_sequence_posterior, generated_sequence_prior], [self.reconstruction_loss_post, self.alignment_loss, self.latent_loss, self.kl_loss_prior, self.reconstruction_loss_prior, self.last_frame_gen_loss]
+            return [gt_sequence, generated_sequence_posterior, generated_sequence_prior], [self.reconstruction_loss_post, self.alignment_loss, self.latent_loss, self.kl_loss_prior, self.reconstruction_loss_prior, self.last_frame_gen_loss], [self.psnr_post, self.ssim_post, self.psnr_prior, self.ssim_prior]
 
         elif mode == "test":
             self.init_hidden()
@@ -257,12 +281,15 @@ class Variational_Gen(nn.Module):
         self.prior_optimizer.zero_grad()
         self.decoder_lstm_optimizer.zero_grad()
 
-        loss = self.reconstruction_loss_post + self.alignment_loss + self.latent_loss
+        # convert psnr to loss
+        
+        
+        loss = self.reconstruction_loss_post + self.alignment_loss + self.latent_loss + torch.exp(-1*self.psnr_post) + (1-self.ssim_post)
         loss.backward(retain_graph=True)
 
         self.prior_lstm.zero_grad()
         prior_loss = self.kl_loss_prior + \
-            self.reconstruction_loss_prior + self.last_frame_gen_loss
+            self.reconstruction_loss_prior + self.last_frame_gen_loss + torch.exp(-1*self.psnr_prior) + (1-self.ssim_prior)
         prior_loss.backward(retain_graph=True)
 
         self.encoder_optimizer.step()
