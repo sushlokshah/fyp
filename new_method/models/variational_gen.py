@@ -70,9 +70,6 @@ class Variational_Gen(nn.Module):
         self.align_criterion = KLCriterion()
         self.ssim_criterion = SSIM()
         self.psnr_criterion = PSNR()
-        
-        
-        
 
         if args.test != True:
             self.init_optimizer()
@@ -88,7 +85,8 @@ class Variational_Gen(nn.Module):
         ), lr=self.lr, weight_decay=self.args.optimizer["weight_decay"], eps=float(self.args.optimizer["eps"]))
         self.decoder_optimizer = self.optimizer(self.decoder.parameters(
         ), lr=self.lr, weight_decay=self.args.optimizer["weight_decay"], eps=float(self.args.optimizer["eps"]))
-        self.refinement_optimizer = self.optimizer(self.refinement.parameters(), lr=self.lr, weight_decay=self.args.optimizer["weight_decay"], eps=float(self.args.optimizer["eps"]))
+        self.refinement_optimizer = self.optimizer(self.refinement.parameters(
+        ), lr=self.lr, weight_decay=self.args.optimizer["weight_decay"], eps=float(self.args.optimizer["eps"]))
         # self.motion_encoder_optimizer = self.optimizer(self.motion_encoder.parameters(
         # ), lr=self.lr, weight_decay=self.args.optimizer["weight_decay"], eps=float(self.args.optimizer["eps"]))
         # self.positional_encoder_optimizer = self.optimizer(self.pos_encoder.parameters(
@@ -158,20 +156,21 @@ class Variational_Gen(nn.Module):
                 # decoder
                 z_decoder = self.decoder_lstm(z_i_post)
                 # print(z_decoder.shape)
-                x_i = self.refinement(self.decoder(z_decoder, feature_cache))
+                x_i = self.decoder(z_decoder, feature_cache)
 
                 generated_sequence_posterior[i] = x_i.detach().cpu()
 
                 z_p = self.decoder_lstm(z_i_prior)
-                target_i = self.refinement(self.decoder(z_p, target_cache))
+                target_i = self.decoder(z_p, target_cache)
                 generated_sequence_prior[i] = target_i.detach().cpu()
 
                 self.reconstruction_loss_post = self.reconstruction_loss_post + self.mse_criterion(
                     x_i, sharp_images[i])
 
-                self.psnr_post = self.psnr_post + self.psnr_criterion(x_i, sharp_images[i])
-                self.ssim_post = self.ssim_post + self.ssim_criterion(x_i, sharp_images[i])
-
+                self.psnr_post = self.psnr_post + \
+                    self.psnr_criterion(x_i, sharp_images[i])
+                self.ssim_post = self.ssim_post + \
+                    self.ssim_criterion(x_i, sharp_images[i])
 
                 self.reconstruction_loss_prior = self.reconstruction_loss_prior + self.mse_criterion(
                     target_i, sharp_images[i])
@@ -183,9 +182,11 @@ class Variational_Gen(nn.Module):
                         mu_i_prior, logvar_i_prior, torch.tensor(0), torch.tensor(0))
                 self.latent_loss = self.latent_loss + \
                     self.latent_mse(z_decoder, target_encoding)
-                    
-                self.psnr_prior = self.psnr_prior + self.psnr_criterion(target_i, sharp_images[i])
-                self.ssim_prior = self.ssim_prior + self.ssim_criterion(target_i, sharp_images[i])
+
+                self.psnr_prior = self.psnr_prior + \
+                    self.psnr_criterion(target_i, sharp_images[i])
+                self.ssim_prior = self.ssim_prior + \
+                    self.ssim_criterion(target_i, sharp_images[i])
 
                 if i == len(sharp_images)-1:
                     self.last_frame_gen_loss = self.mse_criterion(
@@ -213,7 +214,6 @@ class Variational_Gen(nn.Module):
             (len(generated_sequence_posterior) - 1)
         self.ssim_prior = self.ssim_prior / \
             (len(generated_sequence_posterior) - 1)
-            
 
         return [gt_sequence, generated_sequence_posterior, generated_sequence_prior], [self.reconstruction_loss_post, self.alignment_loss, self.latent_loss, self.kl_loss_prior, self.reconstruction_loss_prior, self.last_frame_gen_loss], [self.psnr_post, self.ssim_post, self.psnr_prior, self.ssim_prior]
 
@@ -247,10 +247,10 @@ class Variational_Gen(nn.Module):
         for i in range(1, seq_len):
             if frame_use[i]:
                 gt_sequence[i] = sharp_images[i].detach().cpu()
-                
+
                 sharp_features_encoding, feature_cache = self.encoder(
                     initial_frame)
-                
+
                 time_info = self.pos_encoder(
                     last_time_stamp, i, len(sharp_images), self.batch_size).to(sharp_features_encoding.device)
 
@@ -285,9 +285,10 @@ class Variational_Gen(nn.Module):
                 self.reconstruction_loss_post = self.reconstruction_loss_post + self.mse_criterion(
                     x_i, sharp_images[i])
 
-                self.psnr_post = self.psnr_post + self.psnr_criterion(x_i, sharp_images[i])
-                self.ssim_post = self.ssim_post + self.ssim_criterion(x_i, sharp_images[i])
-
+                self.psnr_post = self.psnr_post + \
+                    self.psnr_criterion(x_i, sharp_images[i])
+                self.ssim_post = self.ssim_post + \
+                    self.ssim_criterion(x_i, sharp_images[i])
 
                 self.reconstruction_loss_prior = self.reconstruction_loss_prior + self.mse_criterion(
                     target_i, sharp_images[i])
@@ -299,9 +300,11 @@ class Variational_Gen(nn.Module):
                         mu_i_prior, logvar_i_prior, torch.tensor(0), torch.tensor(0))
                 self.latent_loss = self.latent_loss + \
                     self.latent_mse(z_decoder, target_encoding)
-                    
-                self.psnr_prior = self.psnr_prior + self.psnr_criterion(target_i, sharp_images[i])
-                self.ssim_prior = self.ssim_prior + self.ssim_criterion(target_i, sharp_images[i])
+
+                self.psnr_prior = self.psnr_prior + \
+                    self.psnr_criterion(target_i, sharp_images[i])
+                self.ssim_prior = self.ssim_prior + \
+                    self.ssim_criterion(target_i, sharp_images[i])
 
                 if i == len(sharp_images)-1:
                     self.last_frame_gen_loss = self.mse_criterion(
@@ -330,11 +333,9 @@ class Variational_Gen(nn.Module):
             (len(generated_sequence_posterior) - 1)
         self.ssim_prior = self.ssim_prior / \
             (len(generated_sequence_posterior) - 1)
-            
 
         return [gt_sequence, generated_sequence_posterior, generated_sequence_prior], [self.reconstruction_loss_post, self.alignment_loss, self.latent_loss, self.kl_loss_prior, self.reconstruction_loss_prior, self.last_frame_gen_loss], [self.psnr_post, self.ssim_post, self.psnr_prior, self.ssim_prior]
 
-    
     def single_image_testing(self, sharp_images, motion_blur_image):
         self.init_hidden()
         seq_len = len(sharp_images)
@@ -386,24 +387,25 @@ class Variational_Gen(nn.Module):
             self.reconstruction_loss_post = self.reconstruction_loss_post + self.mse_criterion(
                 x_i, sharp_images[i])
 
-            self.psnr_post = self.psnr_post + self.psnr_criterion(x_i, sharp_images[i])
-            self.ssim_post = self.ssim_post + self.ssim_criterion(x_i, sharp_images[i])
-            
+            self.psnr_post = self.psnr_post + \
+                self.psnr_criterion(x_i, sharp_images[i])
+            self.ssim_post = self.ssim_post + \
+                self.ssim_criterion(x_i, sharp_images[i])
+
             last_image = x_i
 
         # average all losses over the sequence
         self.reconstruction_loss_post = self.reconstruction_loss_post / \
             (len(generated_sequence_posterior) - 1)
-        
+
         self.ssim_post = self.ssim_post / \
             (len(generated_sequence_posterior) - 1)
-        
+
         self.psnr_post = self.psnr_post / \
             (len(generated_sequence_posterior) - 1)
 
         return [gt_sequence, generated_sequence_posterior], [self.reconstruction_loss_post], [self.psnr_post, self.ssim_post]
 
-    
     def sequence_testing(self, sharp_images, motion_blur_image):
         self.init_hidden()
 
@@ -448,9 +450,11 @@ class Variational_Gen(nn.Module):
                 self.reconstruction_loss_post = self.reconstruction_loss_post + self.mse_criterion(
                     x_i, sharp_images[i])
 
-                self.psnr_post = self.psnr_post + self.psnr_criterion(x_i, sharp_images[i])
-                self.ssim_post = self.ssim_post + self.ssim_criterion(x_i, sharp_images[i])
-                
+                self.psnr_post = self.psnr_post + \
+                    self.psnr_criterion(x_i, sharp_images[i])
+                self.ssim_post = self.ssim_post + \
+                    self.ssim_criterion(x_i, sharp_images[i])
+
                 last_time_stamp = i
             else:
                 continue
@@ -462,25 +466,28 @@ class Variational_Gen(nn.Module):
             (len(generated_sequence_posterior) - 1)
         self.ssim_post = self.ssim_post / \
             (len(generated_sequence_posterior) - 1)
-            
-        return [gt_sequence, generated_sequence_posterior], [self.reconstruction_loss_post], [self.psnr_post, self.ssim_post]
 
+        return [gt_sequence, generated_sequence_posterior], [self.reconstruction_loss_post], [self.psnr_post, self.ssim_post]
 
     def forward(self, sharp_images, motion_blur_image, mode, single_image_prediction=False):
         # print(mode)
         if mode == "train":
             if single_image_prediction:
-                gen_seq, losses, metric = self.single_image_training(sharp_images,motion_blur_image)
+                gen_seq, losses, metric = self.single_image_training(
+                    sharp_images, motion_blur_image)
             else:
-                gen_seq, losses, metric = self.sequence_training(sharp_images, motion_blur_image)
+                gen_seq, losses, metric = self.sequence_training(
+                    sharp_images, motion_blur_image)
         elif mode == "test":
             if single_image_prediction:
-                gen_seq, losses, metric = self.single_image_testing(sharp_images, motion_blur_image)
+                gen_seq, losses, metric = self.single_image_testing(
+                    sharp_images, motion_blur_image)
             else:
-                gen_seq, losses, metric = self.sequence_testing(sharp_images, motion_blur_image)
-            
+                gen_seq, losses, metric = self.sequence_testing(
+                    sharp_images, motion_blur_image)
+
         return gen_seq, losses, metric
-    
+
     def update_model(self):
         self.encoder_optimizer.zero_grad()
         self.decoder_optimizer.zero_grad()
@@ -489,14 +496,16 @@ class Variational_Gen(nn.Module):
         self.decoder_lstm_optimizer.zero_grad()
 
         # convert psnr to loss
-        
-        
-        loss = self.reconstruction_loss_post + self.alignment_loss + self.latent_loss + 1.5*torch.exp(-1*self.psnr_post) + 1.5*(1-self.ssim_post)
+
+        loss = self.reconstruction_loss_post + self.alignment_loss + \
+            self.latent_loss + 1.5 * \
+            torch.exp(-1*self.psnr_post) + 1.5*(1-self.ssim_post)
         loss.backward(retain_graph=True)
 
         self.prior_lstm.zero_grad()
         prior_loss = self.kl_loss_prior + \
-            self.reconstruction_loss_prior + 1.5*self.last_frame_gen_loss + 2*torch.exp(-1*self.psnr_prior) + 2*(1-self.ssim_prior)
+            self.reconstruction_loss_prior + 1.5*self.last_frame_gen_loss + \
+            2*torch.exp(-1*self.psnr_prior) + 2*(1-self.ssim_prior)
         prior_loss.backward(retain_graph=True)
 
         self.encoder_optimizer.step()
@@ -538,7 +547,7 @@ class Variational_Gen(nn.Module):
         self.prior_lstm.load_state_dict(states['prior_lstm'])
         self.decoder_lstm.load_state_dict(states['decoder_lstm'])
         self.decoder.load_state_dict(states['decoder'])
-        self.refinement.load_state_dict(states['refinement'])
+        # self.refinement.load_state_dict(states['refinement'])
         # if self.args.test != True:
         #     self.decoder_optimizer.load_state_dict(states['decoder_optimizer'])
         #     # self.motion_encoder_optimizer.load_state_dict(

@@ -191,7 +191,8 @@ def train(model, args):
             gen_seq = gen_seq.cuda()
 
             # forward pass
-            generated_seq, losses, metric = model(gen_seq, blur_img, "train", single_image_prediction = False)
+            generated_seq, losses, metric = model(
+                gen_seq, blur_img, "train", single_image_prediction=False)
 
             # print(generated_seq[0][1].shape)
             # loss and backprop
@@ -209,7 +210,8 @@ def train(model, args):
                         visualize(generated_seq[1], generated_seq[0], path=args.visualization_path + args.name +
                                   "_" + args.dataset + "_train" + "_epoch_" + str(epoch) + "_step_" + str(i) + ".png")
 
-                print("epoch: ", epoch, "step: ", i, "gen_seq_length:", len(generated_seq[0]), "losses: ",losses)
+                print("epoch: ", epoch, "step: ", i, "gen_seq_length:",
+                      len(generated_seq[0]), "losses: ", losses)
                 print("metric: ", metric)
             if (i+args.save_step_freq) % args.save_step_freq == 0:
                 print("saving model")
@@ -245,11 +247,14 @@ def test(model, args):
         gen_seq = gen_seq.cuda()
 
         # forward pass
-        generated_seq, losses = model(gen_seq, blur_img, "test")
+        generated_seq, losses, metric = model(gen_seq, blur_img, "test")
+        print(losses)
 
+        print(metric)
         # writer.update(model, posterior_loss, prior_loss, epoch *
         # len(train_loader)+i, 'train')
         print("visualizing")
+        # print(metric)
         blur_img_cpu = blur_img.squeeze(0).cpu().detach()
         torch_utils.save_image(blur_img_cpu, "blur_img.png")
         visualize(generated_seq[1], generated_seq[0], path="generated_seq.png")
