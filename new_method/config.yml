@@ -3,7 +3,7 @@ config: C:\Users\Machine Learning GPU\Desktop\fyp\fyp\new_method\config.yml
 name: deblurring
 
 #update and display frequency
-display_step_freq: 1
+display_step_freq: 10
 save_step_freq: 100
 eval_step_freq: 10
 
@@ -16,7 +16,7 @@ train: true
 # data path
 dataset: gopro
 data_root_train: C:\Users\Machine Learning GPU\Desktop\GOPRO_Large_all(2)
-seq_len_train: [4, 20]
+seq_len_train: [4, 24]
 
 training_augmentations:
   resize: [256, 256]
@@ -34,7 +34,8 @@ test_augmentations:
   resize: [256, 256]
 
 # if resume
-weights: C:\Users\Machine Learning GPU\Desktop\fyp\fyp\new_method\checkpoints\deblurring_final.pth
+weights:
+#C:\Users\Machine Learning GPU\Desktop\fyp\fyp\new_method\checkpoints\deblurring_final.pth
 #C:\Users\Machine Learning GPU\Desktop\results\GOPR0881_11_00\deblurring_final.pth
 #C:\Users\Machine Learning GPU\Desktop\results\GOPR0372_07_00\deblurring_final.pth
 #C:\Users\Machine Learning GPU\Desktop\fyp\fyp\new_method\checkpoints\deblurring_epoch_0_step_900.pth
@@ -111,7 +112,7 @@ testing_parameters:
 num_workers: 4
 
 # model parameters
-model: variational_gen
+model: attention_gen
 
 variational_gen:
   encoder:
@@ -143,5 +144,5 @@ attention_gen:
     nheads: 8
 
   decoder:
-    output_channels: 128
-    input_channels: 3
+    output_channels: 3
+    input_channels: 128

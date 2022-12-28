@@ -171,7 +171,7 @@ def train(model, args):
     transform = get_transform(args, 'train')
     print("training augmentation: ", transform)
 
-    training_dataset = Gopro(args, transform, "test")
+    training_dataset = Gopro(args, transform, "train")
     train_loader = torch.utils.data.DataLoader(
         training_dataset, batch_size=args.training_parameters['batch_size'], shuffle=True, num_workers=args.num_workers, pin_memory=True, drop_last=True)
 
@@ -187,14 +187,14 @@ def train(model, args):
             gen_seq = data['gen_seq']
 
             # for varing length generation
-            step_size = np.random.randint(1, 4)
+            step_size = np.random.randint(3, 6)
             gen_seq = gen_seq.permute(1, 0, 2, 3, 4)
             gen_seq = gen_seq[::step_size]
             gen_seq = gen_seq.cuda()
 
             # forward pass
             generated_seq, losses, metric = model(
-                gen_seq, blur_img, "train", single_image_prediction=True)
+                gen_seq, blur_img, "train", single_image_prediction=False)
 
             # print(generated_seq[0][1].shape)
             # loss and backprop
