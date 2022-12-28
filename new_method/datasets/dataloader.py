@@ -135,6 +135,9 @@ def get_transform(args,mode):
         if 'random_rotation' in args.training_augmentations:
             augmentation.append(transforms.RandomRotation(args.training_augmentations['random_rotation']))
         
+        if 'random_crop' in args.training_augmentations:
+            augmentation.append(transforms.RandomCrop(args.training_augmentations['random_crop']))	
+        
         augmentation.append(transforms.ToTensor())
         augmentation.append(transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)))
         # print(augmentation)
