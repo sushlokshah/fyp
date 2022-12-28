@@ -34,7 +34,7 @@ test_augmentations:
   resize: [256, 256]
 
 # if resume
-weights: C:\Users\Machine Learning GPU\Desktop\fyp\fyp\new_method\checkpoints\deblurring_epoch_0_step_900.pth
+weights: #C:\Users\Machine Learning GPU\Desktop\fyp\fyp\new_method\checkpoints\deblurring_epoch_0_step_900.pth
 #  C:\Users\Machine Learning GPU\Desktop\fyp\fyp\new_method\checkpoints\deblurring_initial.pth
 
 checkpoint_dir: C:\Users\Machine Learning GPU\Desktop\fyp\fyp\new_method\checkpoints\
@@ -99,6 +99,7 @@ training_parameters:
   batch_size: 8
   num_epochs: 10
   prob_for_frame_drop: 0.1
+  dropout: 0.2
 
 # hyperparameters for testing
 testing_parameters:
@@ -107,6 +108,8 @@ testing_parameters:
 num_workers: 4
 
 # model parameters
+model: attention_gen
+
 variational_gen:
   encoder:
     output_channels: 128
@@ -118,3 +121,24 @@ variational_gen:
     num_layers: 16
     output_channels: 256
     hidden_size: 256
+
+attention_gen:
+  sharp_encoder:
+    output_channels: 128
+    input_channels: 3
+    nheads: 8
+
+  blur_encoder:
+    output_channels: 128
+    input_channels: 3
+    nheads: 8
+
+  positional:
+    output_channels: 16
+
+  feature_forcasting:
+    nheads: 8
+
+  decoder:
+    output_channels: 128
+    input_channels: 3

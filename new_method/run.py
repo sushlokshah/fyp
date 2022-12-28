@@ -2,6 +2,7 @@ from __future__ import print_function, division
 from utils.visualization import visualize
 from datasets.dataloader import Gopro, get_transform
 from models.variational_gen import Variational_Gen
+from models.attention_gen import Attention_Gen
 from utils.loss import PSNR, SSIM, KLCriterion, SmoothMSE
 from ray import tune
 # from fyp.new_method.utils.utils import generation_viz
@@ -399,8 +400,11 @@ def evaluate(model, args):
 
 def run(args):
     print(args)
-    model = Variational_Gen(args)
-
+    if args.model == 'variational_gen':
+        model = Variational_Gen(args)
+    elif args.model == 'attention_gen':
+        model = Attention_Gen(args)
+    
     if args.weights:
         print("weights loaded")
         model.load(args.weights)
