@@ -125,7 +125,7 @@ class Refinement_Decoder(nn.Module):
         # print(f1)
         f2 = F.relu(self.norm2(self.dconv2((f1 + cache[1])/2)))
         # print(f2)
-        f3 = F.relu(self.norm3(self.dconv3((f2 + cache[0])/2)))
+        f3 = F.sigmoid(self.norm3(self.dconv3((f2 + cache[0])/2)))
         # print(f3)
         # f3 = self.refinement(f3)
         # print(f3)

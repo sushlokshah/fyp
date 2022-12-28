@@ -134,9 +134,9 @@ class Pyramidal_feature_encoder(nn.Module):
     def forward(self, x):
 
         # print(x.shape)
-        f1 = F.relu(self.norm1(self.conv1(x)), inplace=True)
-        f2 = F.relu(self.norm2(self.conv2(f1)), inplace=True)
-        f3 = F.relu(self.norm3(self.conv3(f2)), inplace=True)
+        f1 = F.relu(self.conv1(x), inplace=True)
+        f2 = F.relu(self.conv2(f1), inplace=True)
+        f3 = F.relu(self.conv3(f2), inplace=True)
 
         if self.dropout is not None:
             output = self.dropout(f3)

@@ -218,26 +218,29 @@ class Attention_Gen(nn.Module):
         rows = torch.arange(0, sharp_images[0].shape[2]//8).view(1, -1).repeat(sharp_images[0].shape[3]//8, 1)
         coloumns = torch.arange(0, sharp_images[0].shape[3]//8).view(-1, 1).repeat(1, sharp_images[0].shape[2]//8)
         init_corrdinates = torch.stack((rows, coloumns), dim=2).permute(2,0,1).unsqueeze(0).repeat(self.batch_size, 1, 1, 1).to(sharp_images.device)
-        
-        print(init_flow.shape)
-        print(init_corrdinates.shape)
+        import sys
+        # print(init_corrdinates)
+        # print(init_corrdinates.shape)
         # print(init_corrdinates.shape)
         initial_frame = sharp_images[last_time_stamp]
         for i in range(1, len(sharp_images)):
             if frame_use[i]:
                 gt_sequence[i] = sharp_images[i].detach().cpu()
+                # print("sharp_images[i]", sharp_images[i].shape)
+                # print(sharp_images[i].max())
                 # inital sharp encoder
                 attn_sharp_init_features, init_sharp_attn_map, encoded_sharp_init_features, sharp_init_feature_scale = self.sharp_encoder(initial_frame)
-                print("attn_sharp_init_features", attn_sharp_init_features.shape)
+                # print("attn_sharp_init_features", attn_sharp_init_features)
+                # sys.exit(0)
                 # inital positional encoding
                 init_time_info = self.pos_encoder(
                     last_time_stamp, last_time_stamp, len(sharp_images), self.batch_size).to(encoded_sharp_init_features.device)
                 # stack inital time info with each feature from the encoder
-                print("init_time_info", init_time_info.shape)	
-                print("attention_sharp_init_features", attn_sharp_init_features.shape)
-                print("init_flow", init_flow.shape)	
+                # print("init_time_info", init_time_info.shape)	
+                # print("attention_sharp_init_features", attn_sharp_init_features.shape)
+                # print("init_flow", init_flow.shape)	
                 init_time_info = init_time_info.repeat(encoded_sharp_init_features.shape[2], encoded_sharp_init_features.shape[3],1,1).permute(2,3,0,1)
-                print("init_time_info", init_time_info.shape)
+                # print("init_time_info", init_time_info.shape)
                 # inital feature info for feature forcasting
                 init_feature_info = torch.cat( (attn_sharp_init_features, init_time_info,init_flow), dim=1)
                 
@@ -253,36 +256,59 @@ class Attention_Gen(nn.Module):
                 # feature forcasting
                 attn_features_i, correlation_map_i, coords_xy_i = self.feature_forcasting(init_feature_info, blur_feature_info, attn_sharp_init_features)
                 
+                # print(coords_xy_i)
+                # sys.exit(0)
+                
+                
                 current_flow = init_corrdinates - coords_xy_i
+                # print(current_flow)
+                # print(current_flow.shape)
                 # warping sharp_image_features based on the flow
                 # scale  = 1/4
+                # print(attn_sharp_init_features.max())
+                # print(sharp_init_feature_scale[2].max())
                 sharp_init_feature_scale[2] = warp(sharp_init_feature_scale[2], current_flow)
+                # print(sharp_init_feature_scale[2].max())
+                # sys.exit(0)
                 # scale = 1/2
                 # upsample the flow to the size of the feature map
                 new_size = (2* coords_xy_i.shape[2], 2* coords_xy_i.shape[3])
                 coords_xy_i_2 = 2 * F.interpolate(current_flow, size=new_size, mode='bilinear', align_corners=True)
+                # print(sharp_init_feature_scale[1].max())
                 sharp_init_feature_scale[1] = warp(sharp_init_feature_scale[1], coords_xy_i_2)
+                # print(sharp_init_feature_scale[1].max())
+                # sys.exit(0)
                 # scale = 1
                 # upsample the flow to the size of the feature map
                 new_size = (2* coords_xy_i_2.shape[2], 2* coords_xy_i_2.shape[3])
                 coords_xy_i_4 = 2 * F.interpolate(coords_xy_i_2, size=new_size, mode='bilinear', align_corners=True)
+                # print(sharp_init_feature_scale[0].max())
                 sharp_init_feature_scale[0] = warp(sharp_init_feature_scale[0], coords_xy_i_4)
+                # print(sharp_init_feature_scale[0].max())
+                # sys.exit(0)
                 #refinement decoder
                 gen_sharp_image = self.decoder(attn_features_i, sharp_init_feature_scale) 
                 generated_sequence[i] = gen_sharp_image.detach().cpu()
-                
+                # print("gen_sharp_image", gen_sharp_image.shape)
+                # print(gen_sharp_image.max())
+                # sys.exit(0)
                 self.reconstruction_loss_post = self.reconstruction_loss_post + self.mse_criterion(gen_sharp_image, sharp_images[i])
                 self.ssim_post = self.ssim_post + self.ssim_criterion(gen_sharp_image, sharp_images[i])
                 self.psnr_post = self.psnr_post + self.psnr_criterion(gen_sharp_image, sharp_images[i])
                 
                 init_flow = current_flow
+                # print("init_flow", init_flow.shape)
+                # print("init_flow", init_flow.max())
+                # sys.exit(0)
                 init_corrdinates = coords_xy_i
+                # print(init_corrdinates.max())
                 # normalized flow
-                init_flow[:,0,:,:] = init_flow[:,0,:,:] / (sharp_images.shape[3]//8)
-                init_flow[:,1,:,:] = init_flow[:,1,:,:] / (sharp_images.shape[2]//8)
+                init_flow[:,0,:,:] = init_flow[:,0,:,:] / (sharp_images[0].shape[3]//8)
+                init_flow[:,1,:,:] = init_flow[:,1,:,:] / (sharp_images[0].shape[2]//8)
                 last_time_stamp = i
-                initial_frame = gen_sharp_image
-                
+                # initial_frame = gen_sharp_image
+                # print(init_flow.max())
+                # sys.exit(0)                
             else:
                 continue
         
@@ -290,7 +316,7 @@ class Attention_Gen(nn.Module):
         self.psnr_post = self.psnr_post / (len(generated_sequence) - 1)
         self.ssim = self.ssim_post / (len(generated_sequence) - 1)
         
-        return [gt_sequence, generated_sequence], [self.reconstruction_loss_post],[self.psnr_post, self.ssim_post]
+        return [gt_sequence, generated_sequence], [self.reconstruction_loss_post.item()],[self.psnr_post.item(), self.ssim_post.item()]
 
 
     def forward(self, sharp_images, motion_blur_image, mode, single_image_prediction=False):

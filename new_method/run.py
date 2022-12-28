@@ -194,7 +194,7 @@ def train(model, args):
 
             # forward pass
             generated_seq, losses, metric = model(
-                gen_seq, blur_img, "train", single_image_prediction=False)
+                gen_seq, blur_img, "train", single_image_prediction=True)
 
             # print(generated_seq[0][1].shape)
             # loss and backprop
