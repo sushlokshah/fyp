@@ -232,7 +232,7 @@ def test(model, args):
     transform = get_transform(args, 'test')
     print("training augmentation: ", transform)
 
-    testing_data = Gopro(args, transform, "train")
+    testing_data = Gopro(args, transform, "test")
     test_loader = torch.utils.data.DataLoader(
         testing_data, batch_size=args.testing_parameters['batch_size'], shuffle=False, num_workers=args.num_workers, pin_memory=True, drop_last=True)
 
@@ -404,7 +404,7 @@ def run(args):
         model = Variational_Gen(args)
     elif args.model == 'attention_gen':
         model = Attention_Gen(args)
-    
+
     if args.weights:
         print("weights loaded")
         model.load(args.weights)
