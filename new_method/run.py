@@ -1,4 +1,5 @@
 from __future__ import print_function, division
+from utils.loss import PSNR, SSIM
 from utils.visualization import visualize
 from datasets.dataloader import Gopro, get_transform
 from models.variational_gen import Variational_Gen
@@ -232,7 +233,7 @@ def test(model, args):
     transform = get_transform(args, 'test')
     print("training augmentation: ", transform)
 
-    testing_data = Gopro(args, transform, "train")
+    testing_data = Gopro(args, transform, "test")
     test_loader = torch.utils.data.DataLoader(
         testing_data, batch_size=args.testing_parameters['batch_size'], shuffle=False, num_workers=args.num_workers, pin_memory=True, drop_last=True)
 
@@ -242,19 +243,25 @@ def test(model, args):
     total_loss = 0
     total_psnr = 0
     total_ssim = 0
-
+    total_blur_psnr = 0
+    total_blur_ssim = 0
     for i, data in enumerate(test_loader):
         torch.cuda.empty_cache()
         seq_len = data['length'].cuda()
         blur_img = data['blur'].cuda()
         gen_seq = data['gen_seq']
-
         # for varing length generation
-        step_size = np.random.randint(1, 3)
+        # step_size = np.random.randint(1, 3)
         gen_seq = gen_seq.permute(1, 0, 2, 3, 4)
-        gen_seq = gen_seq[::step_size]
+        # gen_seq = gen_seq[::step_size]
         gen_seq = gen_seq.cuda()
 
+        psnr_cri = PSNR()
+        ssim_cri = SSIM()
+        blur_psnr = psnr_cri(blur_img, gen_seq[len(gen_seq)//2])
+        blur_ssim = ssim_cri(blur_img, gen_seq[len(gen_seq)//2])
+        total_blur_ssim = total_blur_ssim + blur_ssim.item()
+        total_blur_psnr = total_blur_psnr + blur_psnr.item()
         # forward pass
         generated_seq, losses, metric = model(
             gen_seq, blur_img, "test", single_image_prediction=True)
@@ -263,7 +270,9 @@ def test(model, args):
         total_ssim = total_ssim + metric[1]
         # writer.update(model, posterior_loss, prior_loss, epoch *
         # len(train_loader)+i, 'train')
-        print("losses: ", losses, "metric: ", metric)
+        print("losses: ", losses[0])
+        print("psnr", metric[0])
+        print("ssim", metric[1])
 
         if args.visualize:
             if not os.path.exists(os.path.join(args.visualization_path, "test")):
@@ -287,6 +296,8 @@ def test(model, args):
                           "_" + args.dataset + "_train" + "_step_" + str(i) + ".png")
     print("total loss: ", total_loss/len(test_loader), "total psnr: ",
           total_psnr/len(test_loader), "total ssim: ", total_ssim/len(test_loader))
+    print("total blur psnr: ", total_blur_psnr / len(test_loader),
+          "total blur ssim: ", total_blur_ssim/len(test_loader))
     # writer.close()
 
 
@@ -404,7 +415,7 @@ def run(args):
         model = Variational_Gen(args)
     elif args.model == 'attention_gen':
         model = Attention_Gen(args)
-    
+
     if args.weights:
         print("weights loaded")
         model.load(args.weights)

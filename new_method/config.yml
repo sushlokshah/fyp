@@ -10,8 +10,8 @@ eval_step_freq: 10
 #about training and testing
 evaluate: false
 sweep: false
-test: false
-train: true
+test: true
+train: false
 
 # data path
 dataset: gopro
@@ -28,13 +28,15 @@ training_augmentations:
   # random_erasing: [0.5, 0.5, 0.5, 0.5, 0.5]
 
 data_root_test: C:\Users\Machine Learning GPU\Desktop\GOPRO_Large_all(2)
-seq_len_test: [5, 16]
+seq_len_test: [4, 10]
 
 test_augmentations:
   resize: [256, 256]
 
 # if resume
-weights: #C:\Users\Machine Learning GPU\Desktop\fyp\fyp\new_method\checkpoints\deblurring_epoch_0_step_900.pth
+weights: C:\Users\Machine Learning GPU\Desktop\results\GOPR0881_11_00\deblurring_final.pth
+#C:\Users\Machine Learning GPU\Desktop\results\GOPR0372_07_00\deblurring_final.pth
+#C:\Users\Machine Learning GPU\Desktop\fyp\fyp\new_method\checkpoints\deblurring_epoch_0_step_900.pth
 #  C:\Users\Machine Learning GPU\Desktop\fyp\fyp\new_method\checkpoints\deblurring_initial.pth
 
 checkpoint_dir: C:\Users\Machine Learning GPU\Desktop\fyp\fyp\new_method\checkpoints\
@@ -108,7 +110,7 @@ testing_parameters:
 num_workers: 4
 
 # model parameters
-model: attention_gen
+model: variational_gen
 
 variational_gen:
   encoder:

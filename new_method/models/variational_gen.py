@@ -354,8 +354,8 @@ class Variational_Gen(nn.Module):
         gt_sequence = {}
 
         last_image = sharp_images[0]
-        print("last image shape", last_image.shape)
-        print("seq_len", seq_len)
+        # print("last image shape", last_image.shape)
+        # print("seq_len", seq_len)
         for i in range(1, seq_len):
             last_time_stamp = i
             current_image = last_image
@@ -384,15 +384,12 @@ class Variational_Gen(nn.Module):
             x_i = self.decoder(z_decoder, feature_cache)
 
             generated_sequence_posterior[i] = x_i.detach().cpu()
-
-            self.reconstruction_loss_post.append(self.mse_criterion(
-                x_i, sharp_images[i]).item())
-
-            self.psnr_post.append(self.psnr_criterion(
-                x_i, sharp_images[i]).item())
-
-            self.ssim_post.append(self.ssim_criterion(
-                x_i, sharp_images[i]).item())
+            mse_loss = self.mse_criterion(x_i, sharp_images[i])
+            self.reconstruction_loss_post.append(mse_loss.item())
+            psnr = self.psnr_criterion(x_i, sharp_images[i])
+            self.psnr_post.append(psnr.item())
+            ssim = self.ssim_criterion(x_i, sharp_images[i])
+            self.ssim_post.append(ssim.item())
 
             last_image = x_i
 
@@ -406,7 +403,7 @@ class Variational_Gen(nn.Module):
         # self.psnr_post = self.psnr_post / \
         #     (len(generated_sequence_posterior) - 1)
 
-        return [gt_sequence, generated_sequence_posterior], [self.reconstruction_loss_post], [self.psnr_post, self.ssim_post]
+        return [gt_sequence, generated_sequence_posterior], [np.array(self.reconstruction_loss_post)], [np.array(self.psnr_post), np.array(self.ssim_post)]
 
     def sequence_testing(self, sharp_images, motion_blur_image):
         self.init_hidden()
