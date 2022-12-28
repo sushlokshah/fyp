@@ -110,6 +110,10 @@ class Attention_Gen(nn.Module):
         #print(sharp_images.shape)
         import sys
         init_flow = torch.zeros((self.batch_size, 2, sharp_images[0].shape[2]//8,sharp_images[0].shape[3]//8)).to(sharp_images.device)
+        rows = torch.arange(0, sharp_images[0].shape[2]//8).view(1, -1).repeat(sharp_images[0].shape[3]//8, 1)
+        coloumns = torch.arange(0, sharp_images[0].shape[3]//8).view(-1, 1).repeat(1, sharp_images[0].shape[2]//8)
+        init_corrdinates = torch.stack((rows, coloumns), dim=2).permute(2,0,1).unsqueeze(0).repeat(self.batch_size, 1, 1, 1).to(sharp_images.device)
+        # print(init_corrdinates.shape)
         # print(init_flow.indices())
         # sys.exit(0)
         for i in range(1, len(sharp_images)):
@@ -145,15 +149,15 @@ class Attention_Gen(nn.Module):
                 attn_features_i, correlation_map_i, coords_xy_i = self.feature_forcasting(init_feature_info, blur_feature_info, attn_sharp_init_features)
                 
                 # #print("attn_features_i", attn_features_i)
-                
+                current_flow = init_corrdinates - coords_xy_i
                 # warping sharp_image_features based on the flow
                 # scale  = 1/4
-                sharp_init_feature_scale[2] = warp(sharp_init_feature_scale[2], init_flow - coords_xy_i)
+                sharp_init_feature_scale[2] = warp(sharp_init_feature_scale[2], current_flow)
                 # scale = 1/2
                 # #print(sharp_init_feature_scale[2])
                 # upsample the flow to the size of the feature map
                 new_size = (2* coords_xy_i.shape[2], 2* coords_xy_i.shape[3])
-                coords_xy_i_2 = 2*F.interpolate(init_flow - coords_xy_i, size=new_size, mode='bilinear', align_corners=True)
+                coords_xy_i_2 = 2 * F.interpolate(current_flow, size=new_size, mode='bilinear', align_corners=True)
                 sharp_init_feature_scale[1] = warp(sharp_init_feature_scale[1], coords_xy_i_2)
                 
                 # #print("sharp_init_feature_scale[1]", sharp_init_feature_scale[1])
@@ -177,11 +181,12 @@ class Attention_Gen(nn.Module):
                 #print("reconstruction_loss_post", self.reconstruction_loss_post.item())
                 #print("ssim_post", self.ssim_post.item())
                 #print("psnr_post", self.psnr_post.item())
-                init_flow = init_flow - coords_xy_i
+                init_flow = current_flow
                 # normalized flow
                 init_flow[:,0,:,:] = init_flow[:,0,:,:] / (sharp_images[0].shape[3]//8)
                 init_flow[:,1,:,:] = init_flow[:,1,:,:] / (sharp_images[0].shape[2]//8)
                 
+                init_corrdinates = coords_xy_i
                 #print(init_flow)
                 last_time_stamp = i
                 # sys.exit(0)
@@ -210,6 +215,10 @@ class Attention_Gen(nn.Module):
         self.ssim_post = 0
         last_time_stamp = 0
         init_flow = torch.zeros((self.batch_size, 2, sharp_images[0].shape[2]//8,sharp_images[0].shape[3]//8)).to(sharp_images.device)
+        rows = torch.arange(0, sharp_images[0].shape[2]//8).view(1, -1).repeat(sharp_images[0].shape[3]//8, 1)
+        coloumns = torch.arange(0, sharp_images[0].shape[3]//8).view(-1, 1).repeat(1, sharp_images[0].shape[2]//8)
+        init_corrdinates = torch.stack((rows, coloumns), dim=2).permute(2,0,1).unsqueeze(0).repeat(self.batch_size, 1, 1, 1).to(sharp_images.device)
+        # print(init_corrdinates.shape)
         initial_frame = sharp_images[last_time_stamp]
         for i in range(1, len(sharp_images)):
             if frame_use[i]:
@@ -241,13 +250,14 @@ class Attention_Gen(nn.Module):
                 # feature forcasting
                 attn_features_i, correlation_map_i, coords_xy_i = self.feature_forcasting(init_feature_info, blur_feature_info, attn_sharp_init_features)
                 
+                current_flow = init_corrdinates - coords_xy_i
                 # warping sharp_image_features based on the flow
                 # scale  = 1/4
-                sharp_init_feature_scale[2] = warp(sharp_init_feature_scale[2], coords_xy_i)
+                sharp_init_feature_scale[2] = warp(sharp_init_feature_scale[2], current_flow)
                 # scale = 1/2
                 # upsample the flow to the size of the feature map
                 new_size = (2* coords_xy_i.shape[2], 2* coords_xy_i.shape[3])
-                coords_xy_i_2 = 2 * F.interpolate(coords_xy_i, size=new_size, mode='bilinear', align_corners=True)
+                coords_xy_i_2 = 2 * F.interpolate(current_flow, size=new_size, mode='bilinear', align_corners=True)
                 sharp_init_feature_scale[1] = warp(sharp_init_feature_scale[1], coords_xy_i_2)
                 # scale = 1
                 # upsample the flow to the size of the feature map
@@ -262,7 +272,8 @@ class Attention_Gen(nn.Module):
                 self.ssim_post = self.ssim_post + self.ssim_criterion(gen_sharp_image, sharp_images[i])
                 self.psnr_post = self.psnr_post + self.psnr_criterion(gen_sharp_image, sharp_images[i])
                 
-                init_flow = coords_xy_i -  init_flow
+                init_flow = current_flow
+                init_corrdinates = coords_xy_i
                 # normalized flow
                 init_flow[:,0,:,:] = init_flow[:,0,:,:] / (sharp_images.shape[3]//8)
                 init_flow[:,1,:,:] = init_flow[:,1,:,:] / (sharp_images.shape[2]//8)
