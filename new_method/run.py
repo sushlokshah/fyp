@@ -171,7 +171,7 @@ def train(model, args):
     transform = get_transform(args, 'train')
     print("training augmentation: ", transform)
 
-    training_dataset = Gopro(args, transform, "train")
+    training_dataset = Gopro(args, transform, "test")
     train_loader = torch.utils.data.DataLoader(
         training_dataset, batch_size=args.training_parameters['batch_size'], shuffle=True, num_workers=args.num_workers, pin_memory=True, drop_last=True)
 

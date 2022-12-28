@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
-
+import sys
 import torch
 import torchvision
 import torchvision.transforms as transforms
@@ -102,67 +102,79 @@ class decoder(nn.Module):
 
 
 class Refinement_Decoder(nn.Module):
-    def __init__(self,output_channels,input_channels):
+    def __init__(self, output_channels, input_channels):
         super(Refinement_Decoder, self).__init__()
         self.output_channels = output_channels
         self.input_channels = input_channels
-            
+
         self.norm1 = nn.BatchNorm2d(self.input_channels//2)
         self.norm2 = nn.BatchNorm2d(self.input_channels//4)
         self.norm3 = nn.BatchNorm2d(self.output_channels)
-        
-        self.dconv1 = nn.ConvTranspose2d(self.input_channels, self.input_channels//2, kernel_size=4, stride=2, padding=1)
-        self.dconv2 = nn.ConvTranspose2d(2*self.input_channels//2, self.input_channels//4, kernel_size=4, stride=2, padding=1)
-        self.dconv3 = nn.ConvTranspose2d(2*self.input_channels//4, self.output_channels, kernel_size=8, stride=2, padding=3)
-        
+
+        self.dconv1 = nn.ConvTranspose2d(
+            self.input_channels, self.input_channels//2, kernel_size=4, stride=2, padding=1)
+        self.dconv2 = nn.ConvTranspose2d(
+            self.input_channels//2, self.input_channels//4, kernel_size=4, stride=2, padding=1)
+        self.dconv3 = nn.ConvTranspose2d(
+            self.input_channels//4, self.output_channels, kernel_size=8, stride=2, padding=3)
+
         self.refinement = refinement_module(self.output_channels)
-        
+
     def forward(self, x, cache):
         f1 = F.relu(self.norm1(self.dconv1(x)))
-        print(f1.shape)
-        f2 = F.relu(self.norm2(self.dconv2(torch.cat((f1,cache[1]),dim=1))))
-        print(f2.shape)
-        f3 = F.relu(self.norm3(self.dconv3(torch.cat((f2,cache[0]),dim=1))))
-        f3 = self.refinement(f3)
-        
+        # print(f1)
+        f2 = F.relu(self.norm2(self.dconv2((f1 + cache[1])/2)))
+        # print(f2)
+        f3 = F.relu(self.norm3(self.dconv3((f2 + cache[0])/2)))
+        # print(f3)
+        # f3 = self.refinement(f3)
+        # print(f3)
+        # sys.exit(0)
         return f3
-    
+
+
 class refinement_module(nn.Module):
     def __init__(self, output_channels):
         super(refinement_module, self).__init__()
         self.output_channels = output_channels
-        self.block1_conv1 = nn.Conv2d(self.output_channels, self.output_channels, kernel_size=3, stride=1, padding=1)
-        self.block1_conv2 = nn.Conv2d(self.output_channels, self.output_channels, kernel_size=3, stride=1, padding=1)
-        self.block1_conv3 = nn.Conv2d(self.output_channels, self.output_channels, kernel_size=3, stride=1, padding=1)
-        
+        self.block1_conv1 = nn.Conv2d(
+            self.output_channels, self.output_channels, kernel_size=3, stride=1, padding=1)
+        self.block1_conv2 = nn.Conv2d(
+            self.output_channels, self.output_channels, kernel_size=3, stride=1, padding=1)
+        self.block1_conv3 = nn.Conv2d(
+            self.output_channels, self.output_channels, kernel_size=3, stride=1, padding=1)
+
         self.norm1 = nn.BatchNorm2d(self.output_channels)
-        
-        self.block2_conv1 = nn.Conv2d(self.output_channels, self.output_channels, kernel_size=3, stride=1, padding=1)
-        self.block2_conv2 = nn.Conv2d(self.output_channels, self.output_channels, kernel_size=3, stride=1, padding=1)
-        self.block2_conv3 = nn.Conv2d(self.output_channels, self.output_channels, kernel_size=3, stride=1, padding=1)
+
+        self.block2_conv1 = nn.Conv2d(
+            self.output_channels, self.output_channels, kernel_size=3, stride=1, padding=1)
+        self.block2_conv2 = nn.Conv2d(
+            self.output_channels, self.output_channels, kernel_size=3, stride=1, padding=1)
+        self.block2_conv3 = nn.Conv2d(
+            self.output_channels, self.output_channels, kernel_size=3, stride=1, padding=1)
 
         self.norm2 = nn.BatchNorm2d(self.output_channels)
-        
+
     def forward(self, x):
-        
+
         x1 = F.relu(self.block1_conv1(x))
         x1 = F.relu(self.block1_conv2(x1))
         x1 = F.relu(self.block1_conv3(x1))
-        
+
         x1 = self.norm1(x1 + x)
-        
-        
+
         x2 = F.relu(self.block2_conv1(x1))
         x2 = F.relu(self.block2_conv2(x2))
         x2 = F.relu(self.block2_conv3(x2))
-        
+
         x2 = self.norm2(x2 + x1)
-        
+
         return x2
 
+
 if __name__ == '__main__':
-    model = Refinement_Decoder(3,128)
-    x = torch.randn(8,128,16,16)
-    cache = [torch.randn(8,32,64,64),torch.randn(8,64,32,32), x]
-    y = model(x,cache)
+    model = Refinement_Decoder(3, 128)
+    x = torch.randn(8, 128, 16, 16)
+    cache = [torch.randn(8, 32, 64, 64), torch.randn(8, 64, 32, 32), x]
+    y = model(x, cache)
     print(y.shape)
