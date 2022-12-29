@@ -81,6 +81,8 @@ class Attention_Gen(nn.Module):
         self.feature_forcasting = Feature_forcaster(history_in_channels, current_in_channels, self.args.attention_gen['sharp_encoder']['output_channels'], self.args.attention_gen['feature_forcasting']['nheads'], self.dropout)
         self.decoder = Refinement_Decoder(self.args.attention_gen['decoder']['output_channels'], self.args.attention_gen['decoder']['input_channels'])
         
+        self.flow_conv1 = nn.Conv2d(2, 2, kernel_size=3, stride=1, padding=1)
+        self.flow_conv2 = nn.Conv2d(2, 2, kernel_size=3, stride=1, padding=1)
         self.mse_criterion = nn.L1Loss()
         self.ssim_criterion = SSIM()
         self.psnr_criterion = PSNR()
@@ -149,7 +151,7 @@ class Attention_Gen(nn.Module):
                 attn_features_i, correlation_map_i, coords_xy_i = self.feature_forcasting(init_feature_info, blur_feature_info, attn_sharp_init_features)
                 
                 # #print("attn_features_i", attn_features_i)
-                current_flow = init_corrdinates - coords_xy_i
+                current_flow = self.flow_conv1(init_corrdinates - coords_xy_i)
                 # warping sharp_image_features based on the flow
                 # scale  = 1/4
                 sharp_init_feature_scale[2] = warp(sharp_init_feature_scale[2], current_flow)
@@ -158,6 +160,7 @@ class Attention_Gen(nn.Module):
                 # upsample the flow to the size of the feature map
                 new_size = (2* coords_xy_i.shape[2], 2* coords_xy_i.shape[3])
                 coords_xy_i_2 = 2 * F.interpolate(current_flow, size=new_size, mode='bilinear', align_corners=True)
+                coords_xy_i_2 = self.flow_conv2(coords_xy_i_2)
                 sharp_init_feature_scale[1] = warp(sharp_init_feature_scale[1], coords_xy_i_2)
                 
                 # #print("sharp_init_feature_scale[1]", sharp_init_feature_scale[1])
@@ -165,12 +168,14 @@ class Attention_Gen(nn.Module):
                 # upsample the flow to the size of the feature map
                 new_size = (2* coords_xy_i_2.shape[2], 2* coords_xy_i_2.shape[3])
                 coords_xy_i_4 = 2 * F.interpolate(coords_xy_i_2, size=new_size, mode='bilinear', align_corners=True)
+                # coords_xy_i_4 = self.flow_conv(coords_xy_i_4)
                 sharp_init_feature_scale[0] = warp(sharp_init_feature_scale[0], coords_xy_i_4)
                 # #print("sharp_init_feature_scale[0]", sharp_init_feature_scale[0])
                 #refinement decoder
                 
                 # fine level feature
                 coords_xy_i_8 = 2 * F.interpolate(coords_xy_i_4, size=(2* coords_xy_i_4.shape[2], 2* coords_xy_i_4.shape[3]), mode='bilinear', align_corners=True)
+                # coords_xy_i_8 = self.flow_conv(coords_xy_i_8)
                 sharp_image_features = warp(sharp_images[last_time_stamp], coords_xy_i_8)
                 
                 gen_sharp_image = self.decoder(attn_features_i, sharp_init_feature_scale,sharp_image_features) 
@@ -349,7 +354,7 @@ class Attention_Gen(nn.Module):
         self.feature_forcasting_optimizer.zero_grad()
         self.decoder_optimizer.zero_grad()
         
-        loss = self.reconstruction_loss_post + torch.exp(-0.05*self.psnr_post) + 0.7*torch.abs(1-self.ssim_post)
+        loss = self.reconstruction_loss_post + torch.exp(-0.05*self.psnr_post) + torch.abs(1-self.ssim_post)
         #print(loss.item())
         loss.backward(retain_graph=True)
         
@@ -366,7 +371,8 @@ class Attention_Gen(nn.Module):
             'blur_encoder': self.blur_encoder.state_dict(),
             'feature_forcasting': self.feature_forcasting.state_dict(),
             'decoder': self.decoder.state_dict(),
-            
+            'flow_conv1': self.flow_conv1.state_dict(),
+            'flow_conv2': self.flow_conv2.state_dict(),
             'sharp_encoder_optimizer': self.sharp_encoder_optimizer.state_dict(),
             'blur_encoder_optimizer': self.blur_encoder_optimizer.state_dict(),
             'feature_forcasting_optimizer': self.feature_forcasting_optimizer.state_dict(),
@@ -380,7 +386,9 @@ class Attention_Gen(nn.Module):
         self.blur_encoder.load_state_dict(states['blur_encoder'])
         self.feature_forcasting.load_state_dict(states['feature_forcasting'])
         self.decoder.load_state_dict(states['decoder'])
-        
+        self.flow_conv1.load_state_dict(states['flow_conv1'])
+        self.flow_conv2.load_state_dict(states['flow_conv2'])
+        # self.flow_conv.load_state_dict(states['flow_conv'])
         # self.sharp_encoder_optimizer.load_state_dict(states['sharp_encoder_optimizer'])
         # self.blur_encoder_optimizer.load_state_dict(states['blur_encoder_optimizer'])
         # self.feature_forcasting_optimizer.load_state_dict(states['feature_forcasting_optimizer'])
