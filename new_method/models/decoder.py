@@ -157,11 +157,14 @@ class refinement_module(nn.Module):
 
     def forward(self, x , warped_image):
 
-        x1 = F.relu(self.block1_conv1((x + warped_image)/2))
+        x1 = F.relu(self.block1_conv1(x))
         x1 = F.relu(self.block1_conv2(x1))
         x1 = F.relu(self.block1_conv3(x1))
 
-        return x1
+        x2 = F.relu(self.block2_conv1(warped_image))
+        x2 = F.relu(self.block2_conv2(x2))
+        x2 = F.relu(self.block2_conv3(x2))
+        return 0.4*x1 + 0.6*x2
 
 
 if __name__ == '__main__':
