@@ -120,14 +120,14 @@ class Refinement_Decoder(nn.Module):
 
         self.refinement = refinement_module(self.output_channels)
 
-    def forward(self, x, cache):
+    def forward(self, x, cache, warped_input_image):
         f1 = F.relu(self.norm1(self.dconv1(x)))
         # print(f1)
         f2 = F.relu(self.norm2(self.dconv2((f1 + cache[1])/2)))
         # print(f2)
         f3 = F.sigmoid(self.norm3(self.dconv3((f2 + cache[0])/2)))
         # print(f3)
-        # f3 = self.refinement(f3)
+        f3 = self.refinement(f3, warped_input_image)
         # print(f3)
         # sys.exit(0)
         return f3
@@ -155,21 +155,13 @@ class refinement_module(nn.Module):
 
         self.norm2 = nn.BatchNorm2d(self.output_channels)
 
-    def forward(self, x):
+    def forward(self, x , warped_image):
 
-        x1 = F.relu(self.block1_conv1(x))
+        x1 = F.relu(self.block1_conv1((x + warped_image)/2))
         x1 = F.relu(self.block1_conv2(x1))
         x1 = F.relu(self.block1_conv3(x1))
 
-        x1 = self.norm1(x1 + x)
-
-        x2 = F.relu(self.block2_conv1(x1))
-        x2 = F.relu(self.block2_conv2(x2))
-        x2 = F.relu(self.block2_conv3(x2))
-
-        x2 = self.norm2(x2 + x1)
-
-        return x2
+        return x1
 
 
 if __name__ == '__main__':

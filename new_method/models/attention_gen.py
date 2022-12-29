@@ -168,7 +168,12 @@ class Attention_Gen(nn.Module):
                 sharp_init_feature_scale[0] = warp(sharp_init_feature_scale[0], coords_xy_i_4)
                 # #print("sharp_init_feature_scale[0]", sharp_init_feature_scale[0])
                 #refinement decoder
-                gen_sharp_image = self.decoder(attn_features_i, sharp_init_feature_scale) 
+                
+                # fine level feature
+                coords_xy_i_8 = 2 * F.interpolate(coords_xy_i_4, size=(2* coords_xy_i_4.shape[2], 2* coords_xy_i_4.shape[3]), mode='bilinear', align_corners=True)
+                sharp_image_features = warp(sharp_images[last_time_stamp], coords_xy_i_8)
+                
+                gen_sharp_image = self.decoder(attn_features_i, sharp_init_feature_scale,sharp_image_features) 
                 # import sys
                 # #print(gen_sharp_image)
                 # sys.exit(0)
@@ -287,7 +292,11 @@ class Attention_Gen(nn.Module):
                 # print(sharp_init_feature_scale[0].max())
                 # sys.exit(0)
                 #refinement decoder
-                gen_sharp_image = self.decoder(attn_features_i, sharp_init_feature_scale) 
+                # fine level features
+                coords_xy_i_8 = 2 * F.interpolate(coords_xy_i_4, size=(2* coords_xy_i_4.shape[2], 2* coords_xy_i_4.shape[3]), mode='bilinear', align_corners=True)
+                warped_sharp_image = warp(initial_frame, coords_xy_i_8)
+                
+                gen_sharp_image = self.decoder(attn_features_i, sharp_init_feature_scale, warped_sharp_image) 
                 generated_sequence[i] = gen_sharp_image.detach().cpu()
                 # print("gen_sharp_image", gen_sharp_image.shape)
                 # print(gen_sharp_image.max())
