@@ -125,7 +125,7 @@ class Refinement_Decoder(nn.Module):
         # print(f1)
         f2 = F.relu(self.norm2(self.dconv2((f1 + cache[1])/2)))
         # print(f2)
-        f3 = F.sigmoid(self.norm3(self.dconv3((f2 + cache[0])/2)))
+        f3 = F.relu(self.norm3(self.dconv3((f2 + cache[0])/2)))
         # print(f3)
         f3 = self.refinement(f3, warped_input_image)
         # print(f3)
@@ -157,11 +157,14 @@ class refinement_module(nn.Module):
 
     def forward(self, x , warped_image):
 
-        x1 = F.relu(self.block1_conv1((x + warped_image)/2))
-        x1 = F.relu(self.block1_conv2(x1))
-        x1 = F.relu(self.block1_conv3(x1))
+        x1 = F.relu(self.block1_conv1(x))
+        x1 = torch.sigmoid(self.block1_conv2(x1))
+        # x1 = F.relu(self.block1_conv3(x1))
 
-        return x1
+        x2 = F.relu(self.block2_conv1(warped_image))
+        x2 = torch.sigmoid(self.block2_conv2(x2))
+        # x2 = F.relu(self.block2_conv3(x2))
+        return 0.4*x1 + 0.6*x2
 
 
 if __name__ == '__main__':
