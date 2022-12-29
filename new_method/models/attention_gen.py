@@ -306,7 +306,7 @@ class Attention_Gen(nn.Module):
                 init_flow[:,0,:,:] = init_flow[:,0,:,:] / (sharp_images[0].shape[3]//8)
                 init_flow[:,1,:,:] = init_flow[:,1,:,:] / (sharp_images[0].shape[2]//8)
                 last_time_stamp = i
-                # initial_frame = gen_sharp_image
+                initial_frame = gen_sharp_image
                 # print(init_flow.max())
                 # sys.exit(0)                
             else:

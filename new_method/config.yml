@@ -4,7 +4,7 @@ name: deblurring
 
 #update and display frequency
 display_step_freq: 10
-save_step_freq: 100
+save_step_freq: 1000
 eval_step_freq: 10
 
 #about training and testing
@@ -34,7 +34,7 @@ test_augmentations:
   resize: [256, 256]
 
 # if resume
-weights:
+weights: #C:\Users\Machine Learning GPU\Desktop\fyp\fyp\new_method\checkpoints\deblurring_epoch_0_step_1300.pth
 #C:\Users\Machine Learning GPU\Desktop\fyp\fyp\new_method\checkpoints\deblurring_final.pth
 #C:\Users\Machine Learning GPU\Desktop\results\GOPR0881_11_00\deblurring_final.pth
 #C:\Users\Machine Learning GPU\Desktop\results\GOPR0372_07_00\deblurring_final.pth
@@ -99,7 +99,7 @@ hyperparameters:
 
 # hyperparameters for training
 training_parameters:
-  lr: 0.005
+  lr: 0.001
   batch_size: 8
   num_epochs: 100
   prob_for_frame_drop: 0
