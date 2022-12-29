@@ -95,7 +95,9 @@ class Attention_Gen(nn.Module):
         self.blur_encoder_optimizer = self.optimizer(self.blur_encoder.parameters(), lr=self.lr, weight_decay=self.args.optimizer["weight_decay"], eps=float(self.args.optimizer["eps"]))
         self.feature_forcasting_optimizer = self.optimizer(self.feature_forcasting.parameters(), lr=self.lr, weight_decay=self.args.optimizer["weight_decay"], eps=float(self.args.optimizer["eps"]))
         self.decoder_optimizer = self.optimizer(self.decoder.parameters(), lr=self.lr, weight_decay=self.args.optimizer["weight_decay"], eps=float(self.args.optimizer["eps"]))
-                
+        self.flow_conv1_optimizer = self.optimizer(self.flow_conv1.parameters(), lr=self.lr, weight_decay=self.args.optimizer["weight_decay"], eps=float(self.args.optimizer["eps"]))
+        self.flow_conv2_optimizer = self.optimizer(self.flow_conv2.parameters(), lr=self.lr, weight_decay=self.args.optimizer["weight_decay"], eps=float(self.args.optimizer["eps"]))      
+    
     def sequence_training(self, sharp_images, motion_blur_image):
         # blur_encoder
         attn_blur_features, blur_attn_map, encoded_blur_features, blur_feature_scale = self.blur_encoder(motion_blur_image)
@@ -353,8 +355,9 @@ class Attention_Gen(nn.Module):
         self.blur_encoder_optimizer.zero_grad()
         self.feature_forcasting_optimizer.zero_grad()
         self.decoder_optimizer.zero_grad()
-        
-        loss = self.reconstruction_loss_post + torch.exp(-0.05*self.psnr_post) + torch.abs(1-self.ssim_post)
+        self.flow_conv1_optimizer.zero_grad()
+        self.flow_conv2_optimizer.zero_grad()
+        loss = self.reconstruction_loss_post + torch.exp(-0.05*self.psnr_post) + 0.7*torch.abs(1-self.ssim_post)
         #print(loss.item())
         loss.backward(retain_graph=True)
         
@@ -362,7 +365,8 @@ class Attention_Gen(nn.Module):
         self.blur_encoder_optimizer.step()
         self.feature_forcasting_optimizer.step()
         self.decoder_optimizer.step()
-        
+        self.flow_conv1_optimizer.step()
+        self.flow_conv2_optimizer.step()
         return [loss.item()]
     
     def save(self, fname):
