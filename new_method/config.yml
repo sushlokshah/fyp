@@ -106,9 +106,9 @@ testing_parameters:
   batch_size: 1
 
 num_workers: 4
-
+mode: train_image_deblurring
 # model parameters
-model: attention_gen
+model: blur_decoder
 
 variational_gen:
   encoder:
@@ -138,6 +138,16 @@ attention_gen:
 
   feature_forcasting:
     nheads: 8
+
+  decoder:
+    output_channels: 3
+    input_channels: 128
+
+blur_decoder:
+  sharp_encoder:
+    output_channels: 128
+    input_channels: 3
+    kernel_size: 3
 
   decoder:
     output_channels: 3

@@ -19,7 +19,7 @@ import torchvision.utils as torch_utils
 import torchvision.transforms as transforms
 
 
-def visualize(posterior, gt, prior=None, path="output.png"):
+def visualize(posterior, gt, prior=None, path="output", name = "output.png"):
     post_seq = []
     prior_seq = []
     gt_seq = []
@@ -36,18 +36,21 @@ def visualize(posterior, gt, prior=None, path="output.png"):
             prior_seq.append(invTrans(prior[keys][0]))
         gt_seq.append(invTrans(gt[keys][0]))
     post_seq = torch_utils.make_grid(
-        post_seq, nrow=len(posterior), padding=0, normalize=False, range=None, scale_each=False, pad_value=0)
+        post_seq, nrow=1, padding=2, normalize=False, range=None, scale_each=False, pad_value=255)
     gt_seq = torch_utils.make_grid(
-        gt_seq, nrow=len(posterior), padding=0, normalize=False, range=None, scale_each=False, pad_value=0)
+        gt_seq, nrow=1, padding=2, normalize=False, range=None, scale_each=False, pad_value=255)
 
     if prior != None:
         prior_seq = torch_utils.make_grid(
-            prior_seq, nrow=len(prior), padding=0, normalize=False, range=None, scale_each=False, pad_value=0)
+            prior_seq, nrow=len(prior), padding=2, normalize=False, range=None, scale_each=False, pad_value=255)
+        # stack the image seq vertically
+        # output = tor
+        
         output = torch_utils.make_grid([gt_seq, post_seq, prior_seq], nrow=3,
-                                       padding=0, normalize=False, range=None, scale_each=False, pad_value=0)
+                                       padding=2, normalize=False, range=None, scale_each=False, pad_value=255)
 
     else:
         output = torch_utils.make_grid(
-            [gt_seq, post_seq], nrow=len(posterior), padding=0, normalize=False, range=None, scale_each=False, pad_value=0)
+            [gt_seq, post_seq], nrow=2, padding=2, normalize=False, range=None, scale_each=False, pad_value=255)
 
-    torch_utils.save_image(output, path)
+    torch_utils.save_image(output, os.path.join(path, name))
