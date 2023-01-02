@@ -10,7 +10,7 @@ import torch.optim as optim
 import os
 import torch.utils.data
 from torch.autograd import Variable
-from kernel_estimator import Kernel_estimation
+from models.kernel_estimator import Kernel_estimation
 
 from models.resnet import ResnetBlock
 

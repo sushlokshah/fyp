@@ -4,8 +4,8 @@ name: deblurring
 
 #update and display frequency
 display_step_freq: 10
-save_step_freq: 1000
-eval_step_freq: 10
+save_step_freq: 20
+eval_step_freq: 20
 
 #about training and testing
 evaluate: false
@@ -34,7 +34,8 @@ test_augmentations:
   resize: [256, 256]
 
 # if resume
-weights: C:\Users\Machine Learning GPU\Desktop\fyp\fyp\checkpoints\deblurring_epoch_26_step_0.pth
+weights: 
+# C:\Users\Machine Learning GPU\Desktop\fyp\fyp\checkpoints\deblurring_epoch_26_step_0.pth
 #C:\Users\Machine Learning GPU\Desktop\fyp\fyp\new_method\checkpoints\deblurring_epoch_0_step_1300.pth
 #C:\Users\Machine Learning GPU\Desktop\fyp\fyp\new_method\checkpoints\deblurring_final.pth
 #C:\Users\Machine Learning GPU\Desktop\results\GOPR0881_11_00\deblurring_final.pth
@@ -111,9 +112,9 @@ testing_parameters:
   batch_size: 1
 
 num_workers: 4
-
+mode: train_image_deblurring
 # model parameters
-model: attention_gen
+model: blur_decoder
 
 variational_gen:
   encoder:
@@ -143,6 +144,16 @@ attention_gen:
 
   feature_forcasting:
     nheads: 8
+
+  decoder:
+    output_channels: 3
+    input_channels: 128
+
+blur_decoder:
+  sharp_encoder:
+    output_channels: 128
+    input_channels: 3
+    kernel_size: 3
 
   decoder:
     output_channels: 3

@@ -107,7 +107,7 @@ class Blur_decoder(nn.Module):
         self.deblurring_ssim = self.ssim_criterion(current_sharp_image, sharp_image)
         self.deblurring_psnr = self.psnr_criterion(current_sharp_image, sharp_image)
         
-        return [current_sharp_image], [self.reconstruction_loss.item()], [self.ssim.item()], [self.psnr.item()]
+        return [current_sharp_image, sharp_image], self.reconstruction_loss.item(), [self.psnr.item(), self.ssim.item()]
     
     def update_deblurring(self):
         self.sharp_encoder_optimizer.zero_grad()
@@ -119,9 +119,9 @@ class Blur_decoder(nn.Module):
         self.sharp_encoder_optimizer.step()
         self.decoder_optimizer.step()
         
-        return [loss.item()]
+        return loss.item()
     
-    def update_forcasting(self):
+    def update_forcaster(self):
         return NotImplementedError
     
     def update_model(self):
