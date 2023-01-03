@@ -53,7 +53,7 @@ visualization_path: C:\Users\Machine Learning GPU\Desktop\fyp\fyp\new_method\vis
 #optimizer and optimizer specific parameters
 optimizer:
   optimizer_name: AdamW
-  weight_decay: 0.1
+  weight_decay: 0.01
   eps: 1e-08
 
 #learning rate scheduler and scheduler specific parameters
