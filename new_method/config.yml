@@ -97,14 +97,14 @@ hyperparameters:
 # hyperparameters for training
 training_parameters:
   lr: 0.005
-  batch_size: 32
-  num_epochs: 10
+  batch_size: 64
+  num_epochs: 100
   prob_for_frame_drop: 0
   dropout: 0.2
 
 # hyperparameters for testing
 testing_parameters:
-  batch_size: 32
+  batch_size: 64
 
 num_workers: 4
 mode: train_image_deblurring

@@ -117,7 +117,7 @@ def train(model, args):
 
     training_dataset = Gopro(args, transform, "train")
     train_loader = torch.utils.data.DataLoader(
-        training_dataset, batch_size=args.training_parameters['batch_size'], shuffle=False, num_workers=args.num_workers, pin_memory=True, drop_last=True)
+        training_dataset, batch_size=args.training_parameters['batch_size'], shuffle=True, num_workers=args.num_workers, pin_memory=True, drop_last=True)
 
     print("loaded data and dataloader")
 
@@ -177,7 +177,7 @@ def train(model, args):
             # past_img = blur_img
             # update tensorboard
             writer.update(model, reconstruction_loss, metric,
-                        epoch*len(train_loader) + i, 'train', args.mode)
+                          epoch*len(train_loader) + i, 'train', args.mode)
 
             # update visualization
             if i % args.visualize_step_freq == 1:
@@ -206,9 +206,9 @@ def train(model, args):
                         args.visualization_path, "train", args.mode, "blur")
                     invTrans = transforms.Compose([transforms.Normalize(mean=[0., 0., 0.],
                                                                         std=[1/0.5, 1/0.5, 1/0.5]),
-                                                transforms.Normalize(mean=[-0.5, -0.5, -0.5],
+                                                   transforms.Normalize(mean=[-0.5, -0.5, -0.5],
                                                                         std=[1., 1., 1.]),
-                                                ])
+                                                   ])
                     blur_img_cpu = invTrans(
                         blur_img[0].squeeze(0).cpu().detach())
                     torch_utils.save_image(blur_img_cpu, os.path.join(blur_path, "epoch_{}_iter_{}_loss_{}_psnr_{}_ssim_{}.png".format(
@@ -216,12 +216,12 @@ def train(model, args):
 
             if i % args.save_step_freq == 1:
                 model.save(args.checkpoint_dir + args.name +
-                        '_epoch_' + str(epoch) + '_step_' + str(i) + '.pth')
+                           '_epoch_' + str(epoch) + '_step_' + str(i) + '.pth')
 
             # test model
             if i % args.eval_step_freq == 1:
                 test(model, args, writer, epoch*len(train_loader) + i)
-                
+
     model.save(args.checkpoint_dir + args.name + "final.pth")
     writer.close()
 
@@ -295,7 +295,7 @@ def test(model, args, writer, step):
             # update tensorboard
             # writer.update(model, reconstruction_loss, metric, i, 'test', args.mode)")
             # update visualization
-            if i % args.save_step_freq == 0:
+            if i % args.visualize_step_freq == 0:
                 print("visualizing")
                 if args.visualize:
                     if not os.path.exists(os.path.join(args.visualization_path, "test")):
@@ -322,9 +322,9 @@ def test(model, args, writer, step):
                         args.visualization_path, "test", args.mode, str(step), "blur")
                     invTrans = transforms.Compose([transforms.Normalize(mean=[0., 0., 0.],
                                                                         std=[1/0.5, 1/0.5, 1/0.5]),
-                                                    transforms.Normalize(mean=[-0.5, -0.5, -0.5],
+                                                   transforms.Normalize(mean=[-0.5, -0.5, -0.5],
                                                                         std=[1., 1., 1.]),
-                                                    ])
+                                                   ])
                     blur_img_cpu = invTrans(
                         blur_img[0].squeeze(0).cpu().detach())
                     torch_utils.save_image(blur_img_cpu, os.path.join(
