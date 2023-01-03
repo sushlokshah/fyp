@@ -160,7 +160,7 @@ class Feature_extractor(nn.Module):
         features, feature_scale = self.feature_encoder(x)
         # print(encoded_features.shape)
         encoded_features = posemb_sincos_2d(features) + features
-        
+
         input_features = encoded_features.reshape(
             encoded_features.shape[0], encoded_features.shape[1], -1)
         input_features = input_features.permute(2, 0, 1)
@@ -186,28 +186,45 @@ class Deblurring_net_encoder(nn.Module):
             output_channels, input_channels, dropout)
         self.past_kernel = Kernel_estimation(kernel_size)
         self.current_kernel = Kernel_estimation(kernel_size)
-      
+
     def forward(self, last_blur, current_blur):
-        last_blur_features, last_blur_feature_scale = self.past_feature_encoder(last_blur)
-        current_blur_features, current_blur_feature_scale = self.current_feature_encoder(current_blur)
-        combined_features, combined_feature_scale = self.combined_feature_encoder(torch.cat((last_blur, current_blur), dim=1))
-        
-        
-        past_features_0 = self.past_kernel (last_blur_feature_scale[0], combined_feature_scale[0])
-        current_features_0 = self.current_kernel(last_blur_feature_scale[0], combined_feature_scale[0])
-        
-        past_features_1 = self.past_kernel (last_blur_feature_scale[1], combined_feature_scale[1])
-        current_features_1 = self.current_kernel(last_blur_feature_scale[1], combined_feature_scale[1])
-        
-        past_features_2 = self.past_kernel (last_blur_feature_scale[2], combined_feature_scale[2])
-        current_features_2 = self.current_kernel(last_blur_feature_scale[2], combined_feature_scale[2])
-        
+        # print("last_blur.shape", last_blur.shape)
+        last_blur_features, last_blur_feature_scale = self.past_feature_encoder(
+            last_blur)
+        current_blur_features, current_blur_feature_scale = self.current_feature_encoder(
+            current_blur)
+        combined_features, combined_feature_scale = self.combined_feature_encoder(
+            torch.cat((last_blur, current_blur), dim=1))
+
+        # print("last_blur_features.shape", last_blur_features.shape)
+        # print("current_blur_features.shape", current_blur_features.shape)
+        # print("combined_features.shape", combined_features.shape)
+
+        past_features_0 = self.past_kernel(
+            last_blur_feature_scale[0], combined_feature_scale[0])
+        current_features_0 = self.current_kernel(
+            last_blur_feature_scale[0], combined_feature_scale[0])
+
+        # print("past_features_0.shape", past_features_0.shape)
+
+        past_features_1 = self.past_kernel(
+            last_blur_feature_scale[1], combined_feature_scale[1])
+        current_features_1 = self.current_kernel(
+            last_blur_feature_scale[1], combined_feature_scale[1])
+
+        past_features_2 = self.past_kernel(
+            last_blur_feature_scale[2], combined_feature_scale[2])
+        current_features_2 = self.current_kernel(
+            last_blur_feature_scale[2], combined_feature_scale[2])
+
         last_scale_feature = 0.5*(past_features_2 + current_features_2)
-        
-        features = [0.5*(past_features_0 + current_features_0), 0.5*(past_features_1 + current_features_1), 0.5*(past_features_2 + current_features_2)]
-        
-        return  last_scale_feature ,features  , current_blur_features, current_blur_feature_scale
-    
+
+        features = [0.5*(past_features_0 + current_features_0), 0.5*(past_features_1 +
+                                                                     current_features_1), 0.5*(past_features_2 + current_features_2)]
+
+        return last_scale_feature, features, current_blur_features, current_blur_feature_scale
+
+
 class Feature_forcaster(nn.Module):
     def __init__(self, history_in_channels, current_in_channels, out_channels, nheads, dropout=0):
         super(Feature_forcaster, self).__init__()
@@ -239,9 +256,12 @@ class Feature_forcaster(nn.Module):
         # sharp encoding : [batch, in_channel, H, W]
         # history encoding : [batch, in_channel, H, W]
         # current encoding : [batch, out_channel, H, W]
-        sharp_features = posemb_sincos_2d(sharp_features_in) + sharp_features_in
-        history_encoding = posemb_sincos_2d(history_encoding_in) + history_encoding_in
-        current_encoding = posemb_sincos_2d(current_encoding_in) + current_encoding_in
+        sharp_features = posemb_sincos_2d(
+            sharp_features_in) + sharp_features_in
+        history_encoding = posemb_sincos_2d(
+            history_encoding_in) + history_encoding_in
+        current_encoding = posemb_sincos_2d(
+            current_encoding_in) + current_encoding_in
         N, fC, fH, fW = current_encoding.shape
         # project each features from [batch, in_channel, H, W] to [batch, out_channel, H, W]
         projected_sharp_features = sharp_features.permute(1, 0, 2, 3)
@@ -344,20 +364,22 @@ def warp(features, flow):
     return output*mask
 
 
-def posemb_sincos_2d(patches, temperature = 1000, dtype = torch.float32):
+def posemb_sincos_2d(patches, temperature=1000, dtype=torch.float32):
     _, dim, h, w, device, dtype = *patches.shape, patches.device, patches.dtype
     # print(patches.shape, h, w, dim, device, dtype)
-    y, x = torch.meshgrid(torch.arange(h, device = device), torch.arange(w, device = device))
+    y, x = torch.meshgrid(torch.arange(h, device=device),
+                          torch.arange(w, device=device))
     # print(y.shape, x.shape)
     assert (dim % 4) == 0, 'feature dimension must be multiple of 4 for sincos emb'
-    omega = torch.arange(dim // 4, device = device) / (dim // 4 - 1)
+    omega = torch.arange(dim // 4, device=device) / (dim // 4 - 1)
     omega = 1. / (temperature ** omega)
 
     y = y.flatten()[:, None] * omega[None, :]
-    x = x.flatten()[:, None] * omega[None, :] 
-    pe = torch.cat((x.sin(), x.cos(), y.sin(), y.cos()), dim = 1)
+    x = x.flatten()[:, None] * omega[None, :]
+    pe = torch.cat((x.sin(), x.cos(), y.sin(), y.cos()), dim=1)
     pe = pe.reshape(1, h, w, dim).permute(0, 3, 1, 2)
     return pe.type(dtype)
+
 
 if __name__ == "__main__":
     # model = Feature_extractor(128, 3, 8).cuda()

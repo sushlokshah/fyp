@@ -99,7 +99,7 @@ class Blur_decoder(nn.Module):
         
         # encoder
         sharp_feature, sharp_feature_scale, current_blur_features, current_blur_feature_scale = self.sharp_encoder(past_blur_image,current_blur_image)
-        
+        # print(sharp_feature.shape)
         # decoder
         current_sharp_image = self.decoder(sharp_feature, sharp_feature_scale)
         
@@ -107,7 +107,7 @@ class Blur_decoder(nn.Module):
         self.deblurring_ssim = self.ssim_criterion(current_sharp_image, sharp_image)
         self.deblurring_psnr = self.psnr_criterion(current_sharp_image, sharp_image)
         
-        return [current_sharp_image, sharp_image], self.reconstruction_loss.item(), [self.psnr.item(), self.ssim.item()]
+        return [{0:current_sharp_image}, {0:sharp_image}], self.deblurring_reconstruction_loss.item(), [self.deblurring_psnr.item(), self.deblurring_ssim.item()]
     
     def update_deblurring(self):
         self.sharp_encoder_optimizer.zero_grad()
@@ -139,7 +139,7 @@ class Blur_decoder(nn.Module):
     def train_image_pred(self, past_blur_image, current_blur_image, sharp_image):
         return NotImplementedError
     
-    def forward(self, past_blur_image, current_blur_image, sharp_images, mode):
+    def forward(self, sharp_images, past_blur_image, current_blur_image, mode):
         if mode == "train_image_deblurring":
             generation, loss, metric = self.train_image_deblurring(past_blur_image, current_blur_image, sharp_images)
         elif mode == "train_forcaster_sequence":
