@@ -3,9 +3,9 @@ config: C:\Users\Machine Learning GPU\Desktop\fyp\fyp\new_method\config.yml
 name: deblurring
 
 #update and display frequency
-display_step_freq: 10
+display_step_freq: 5
 save_step_freq: 1000
-visualize_step_freq: 50
+visualize_step_freq: 10
 eval_step_freq: 100
 
 #about training and testing
@@ -53,7 +53,7 @@ visualization_path: C:\Users\Machine Learning GPU\Desktop\fyp\fyp\new_method\vis
 #optimizer and optimizer specific parameters
 optimizer:
   optimizer_name: AdamW
-  weight_decay: 0.0001
+  weight_decay: 0.1
   eps: 1e-08
 
 #learning rate scheduler and scheduler specific parameters
@@ -97,7 +97,7 @@ hyperparameters:
 # hyperparameters for training
 training_parameters:
   lr: 0.005
-  batch_size: 64
+  batch_size: 50
   num_epochs: 100
   prob_for_frame_drop: 0
   dropout: 0.2

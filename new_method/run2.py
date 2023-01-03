@@ -219,8 +219,8 @@ def train(model, args):
                            '_epoch_' + str(epoch) + '_step_' + str(i) + '.pth')
 
             # test model
-            if i % args.eval_step_freq == 1:
-                test(model, args, writer, epoch*len(train_loader) + i)
+            # if i % args.eval_step_freq == 1:
+            #     test(model, args, writer, epoch*len(train_loader) + i)
 
     model.save(args.checkpoint_dir + args.name + "final.pth")
     writer.close()
