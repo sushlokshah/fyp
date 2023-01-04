@@ -194,7 +194,7 @@ def train(model, args):
 
             # forward pass
             generated_seq, losses, metric = model(
-                gen_seq, blur_img, "train", single_image_prediction=False)
+                gen_seq, blur_img, "train", single_image_prediction=True)
 
             # print(generated_seq[0][1].shape)
             # loss and backprop
@@ -233,7 +233,7 @@ def test(model, args):
     transform = get_transform(args, 'test')
     print("training augmentation: ", transform)
 
-    testing_data = Gopro(args, transform, "test")
+    testing_data = Gopro(args, transform, "train")
     test_loader = torch.utils.data.DataLoader(
         testing_data, batch_size=args.testing_parameters['batch_size'], shuffle=False, num_workers=args.num_workers, pin_memory=True, drop_last=True)
 
@@ -251,9 +251,9 @@ def test(model, args):
         blur_img = data['blur'].cuda()
         gen_seq = data['gen_seq']
         # for varing length generation
-        # step_size = np.random.randint(1, 3)
+        step_size = 4
         gen_seq = gen_seq.permute(1, 0, 2, 3, 4)
-        # gen_seq = gen_seq[::step_size]
+        gen_seq = gen_seq[::step_size]
         gen_seq = gen_seq.cuda()
 
         psnr_cri = PSNR()
@@ -264,7 +264,7 @@ def test(model, args):
         total_blur_psnr = total_blur_psnr + blur_psnr.item()
         # forward pass
         generated_seq, losses, metric = model(
-            gen_seq, blur_img, "test", single_image_prediction=True)
+            gen_seq, blur_img, "test", single_image_prediction=False)
         total_loss = total_loss + losses[0]
         total_psnr = total_psnr + metric[0]
         total_ssim = total_ssim + metric[1]

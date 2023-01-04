@@ -128,7 +128,7 @@ class Attention_Gen(nn.Module):
                 
                 # inital positional encoding
                 init_time_info = self.pos_encoder(
-                    last_time_stamp, last_time_stamp, len(sharp_images), self.batch_size).to(encoded_sharp_init_features.device)
+                    i, last_time_stamp, len(sharp_images), self.batch_size).to(encoded_sharp_init_features.device)
                 # stack inital time info with each feature from the encoder
                 #print("init_time_info", init_time_info.shape)
                 init_time_info = init_time_info.repeat(encoded_sharp_init_features.shape[2], encoded_sharp_init_features.shape[3],1,1).permute(2,3,0,1)
@@ -246,7 +246,7 @@ class Attention_Gen(nn.Module):
                 # sys.exit(0)
                 # inital positional encoding
                 init_time_info = self.pos_encoder(
-                    last_time_stamp, last_time_stamp, len(sharp_images), self.batch_size).to(encoded_sharp_init_features.device)
+                    last_time_stamp, i, len(sharp_images), self.batch_size).to(encoded_sharp_init_features.device)
                 # stack inital time info with each feature from the encoder
                 # print("init_time_info", init_time_info.shape)	
                 # print("attention_sharp_init_features", attn_sharp_init_features.shape)
@@ -272,7 +272,7 @@ class Attention_Gen(nn.Module):
                 # sys.exit(0)
                 
                 
-                current_flow = init_corrdinates - coords_xy_i
+                current_flow = self.flow_conv1(init_corrdinates - coords_xy_i)
                 # print(current_flow)
                 # print(current_flow.shape)
                 # warping sharp_image_features based on the flow
@@ -287,6 +287,7 @@ class Attention_Gen(nn.Module):
                 new_size = (2* coords_xy_i.shape[2], 2* coords_xy_i.shape[3])
                 coords_xy_i_2 = 2 * F.interpolate(current_flow, size=new_size, mode='bilinear', align_corners=True)
                 # print(sharp_init_feature_scale[1].max())
+                coords_xy_i_2 = self.flow_conv2(coords_xy_i_2)
                 sharp_init_feature_scale[1] = warp(sharp_init_feature_scale[1], coords_xy_i_2)
                 # print(sharp_init_feature_scale[1].max())
                 # sys.exit(0)
@@ -316,13 +317,13 @@ class Attention_Gen(nn.Module):
                 # print("init_flow", init_flow.shape)
                 # print("init_flow", init_flow.max())
                 # sys.exit(0)
-                init_corrdinates = coords_xy_i
+                # init_corrdinates = coords_xy_i
                 # print(init_corrdinates.max())
                 # normalized flow
                 init_flow[:,0,:,:] = init_flow[:,0,:,:] / (sharp_images[0].shape[3]//8)
                 init_flow[:,1,:,:] = init_flow[:,1,:,:] / (sharp_images[0].shape[2]//8)
-                last_time_stamp = i
-                initial_frame = gen_sharp_image
+                # last_time_stamp = i
+                # initial_frame = gen_sharp_image
                 # print(init_flow.max())
                 # sys.exit(0)                
             else:
@@ -345,7 +346,7 @@ class Attention_Gen(nn.Module):
             if single_image_prediction:
                 gen_seq, losses, metric = self.single_image_training(sharp_images, motion_blur_image)
             else:
-                gen_seq, losses, metric = self.single_image_training(sharp_images, motion_blur_image)
+                gen_seq, losses, metric = self.sequence_training(sharp_images, motion_blur_image)
          
         return gen_seq, losses, metric
     

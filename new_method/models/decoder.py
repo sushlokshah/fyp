@@ -155,7 +155,7 @@ class refinement_module(nn.Module):
 
         self.norm2 = nn.BatchNorm2d(self.output_channels)
 
-    def forward(self, x , warped_image):
+    def forward(self, x, warped_image):
 
         x1 = F.relu(self.block1_conv1(x))
         x1 = torch.sigmoid(self.block1_conv2(x1))
@@ -164,7 +164,7 @@ class refinement_module(nn.Module):
         x2 = F.relu(self.block2_conv1(warped_image))
         x2 = torch.sigmoid(self.block2_conv2(x2))
         # x2 = F.relu(self.block2_conv3(x2))
-        return 0.4*x1 + 0.6*x2
+        return 0.4*x1 + 0.4*x2 + 0.2*warped_image
 
 
 if __name__ == '__main__':
