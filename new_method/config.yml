@@ -96,7 +96,7 @@ hyperparameters:
 
 # hyperparameters for training
 training_parameters:
-  lr: 0.005
+  lr: 0.0005
   batch_size: 50
   num_epochs: 100
   prob_for_frame_drop: 0
