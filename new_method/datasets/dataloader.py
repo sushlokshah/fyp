@@ -91,20 +91,24 @@ class Gopro(Dataset):
         if(idx + self.max_seq_len >= self.seq_lens[seq]):
             idx = self.seq_lens[seq] - self.max_seq_len - 1
         
-        blurry_image = 0    
-        for i in range(self.max_seq_len):
+        current_blurry_image = 0
+        past_blurry_image = 0    
+        for i in range(self.max_seq_len//2):
             # read image from path
-            img_path = self.raw_data[seq][idx + i]
-            img = Image.open(img_path)
-            blurry_image = blurry_image + np.asarray(img)/(self.max_seq_len)
-            self.image_list.append(self.transform(img).unsqueeze(0))
+            current_img_path = self.raw_data[seq][idx + self.max_seq_len//2 + i]
+            past_img_path =   self.raw_data[seq][idx + i]
+            current_img = Image.open(current_img_path)
+            past_img = Image.open(past_img_path)
+            current_blurry_image = current_blurry_image + np.asarray(current_img)/(self.max_seq_len//2)
+            past_blurry_image = past_blurry_image + np.asarray(past_img)/(self.max_seq_len//2)
+            self.image_list.append(self.transform(current_img).unsqueeze(0))
     
-        self.blurry_image = Image.fromarray(np.uint8(blurry_image))
-        
+        self.current_blurry_image = Image.fromarray(np.uint8(current_blurry_image))
+        self.past  = Image.fromarray(np.uint8(past_blurry_image))
         # Pack data
         data = {
-            'length': torch.tensor(self.max_seq_len),
-            'blur': self.transform(self.blurry_image),
+            'past': self.transform(self.past),
+            'blur': self.transform(self.current_blurry_image),
             'gen_seq': torch.cat(self.image_list, dim=0)
         }
         # print("inter_frame_distance: ", torch.tensor(self.inter_frame_distance))

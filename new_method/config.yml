@@ -3,9 +3,10 @@ config: C:\Users\Machine Learning GPU\Desktop\fyp\fyp\new_method\config.yml
 name: deblurring
 
 #update and display frequency
-display_step_freq: 10
+display_step_freq: 5
 save_step_freq: 1000
-eval_step_freq: 10
+visualize_step_freq: 10
+eval_step_freq: 100
 
 #about training and testing
 evaluate: false
@@ -16,7 +17,7 @@ train: true
 # data path
 dataset: gopro
 data_root_train: C:\Users\Machine Learning GPU\Desktop\GOPRO_Large_all(2)
-seq_len_train: [4, 24]
+seq_len_train: [4, 16]
 
 training_augmentations:
   resize: [256, 256]
@@ -34,13 +35,8 @@ test_augmentations:
   resize: [256, 256]
 
 # if resume
-weights: C:\Users\Machine Learning GPU\Desktop\fyp\fyp\checkpoints\deblurring_epoch_26_step_0.pth
-#C:\Users\Machine Learning GPU\Desktop\fyp\fyp\new_method\checkpoints\deblurring_epoch_0_step_1300.pth
-#C:\Users\Machine Learning GPU\Desktop\fyp\fyp\new_method\checkpoints\deblurring_final.pth
-#C:\Users\Machine Learning GPU\Desktop\results\GOPR0881_11_00\deblurring_final.pth
-#C:\Users\Machine Learning GPU\Desktop\results\GOPR0372_07_00\deblurring_final.pth
-#C:\Users\Machine Learning GPU\Desktop\fyp\fyp\new_method\checkpoints\deblurring_epoch_0_step_900.pth
-#
+weights: #C:\Users\Machine Learning GPU\Desktop\fyp\fyp\new_method\visualization\test_sub_no_single_image\deblurring_epoch_13_step_0.pth
+#C:\Users\Machine Learning GPU\Desktop\fyp\fyp\new_method\checkpoints\deblurring_epoch_12_step_0.pth
 
 checkpoint_dir: C:\Users\Machine Learning GPU\Desktop\fyp\fyp\new_method\checkpoints\
 run_dir: C:\Users\Machine Learning GPU\Desktop\fyp\fyp\new_method\runs\
@@ -57,7 +53,7 @@ visualization_path: C:\Users\Machine Learning GPU\Desktop\fyp\fyp\new_method\vis
 #optimizer and optimizer specific parameters
 optimizer:
   optimizer_name: AdamW
-  weight_decay: 0.0001
+  weight_decay: 0.01
   eps: 1e-08
 
 #learning rate scheduler and scheduler specific parameters
@@ -100,20 +96,20 @@ hyperparameters:
 
 # hyperparameters for training
 training_parameters:
-  lr: 0.001
-  batch_size: 8
+  lr: 0.005
+  batch_size: 50
   num_epochs: 100
   prob_for_frame_drop: 0
   dropout: 0.2
 
 # hyperparameters for testing
 testing_parameters:
-  batch_size: 1
+  batch_size: 64
 
 num_workers: 4
-
+mode: train_image_deblurring
 # model parameters
-model: attention_gen
+model: blur_decoder
 
 variational_gen:
   encoder:
@@ -143,6 +139,16 @@ attention_gen:
 
   feature_forcasting:
     nheads: 8
+
+  decoder:
+    output_channels: 3
+    input_channels: 128
+
+blur_decoder:
+  sharp_encoder:
+    output_channels: 128
+    input_channels: 3
+    kernel_size: 3
 
   decoder:
     output_channels: 3

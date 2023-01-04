@@ -10,7 +10,7 @@ import torch.optim as optim
 import os
 import torch.utils.data
 from torch.autograd import Variable
-
+from models.kernel_estimator import Kernel_estimation
 
 from models.resnet import ResnetBlock
 
@@ -157,8 +157,10 @@ class Feature_extractor(nn.Module):
             output_channels, nheads, dropout=dropout, kdim=output_channels, vdim=output_channels)
 
     def forward(self, x):
-        encoded_features, feature_scale = self.feature_encoder(x)
+        features, feature_scale = self.feature_encoder(x)
         # print(encoded_features.shape)
+        encoded_features = posemb_sincos_2d(features) + features
+
         input_features = encoded_features.reshape(
             encoded_features.shape[0], encoded_features.shape[1], -1)
         input_features = input_features.permute(2, 0, 1)
@@ -169,7 +171,58 @@ class Feature_extractor(nn.Module):
         attn_features = attn_features.reshape(encoded_features.shape)
         attn_map = attn_map.reshape(encoded_features.shape[0], encoded_features.shape[2],
                                     encoded_features.shape[3], encoded_features.shape[2], encoded_features.shape[3])
-        return attn_features, attn_map, encoded_features, feature_scale
+        return attn_features, attn_map, features, feature_scale
+
+
+# define deblurring network
+class Deblurring_net_encoder(nn.Module):
+    def __init__(self, output_channels, input_channels, kernel_size, dropout=0):
+        super(Deblurring_net_encoder, self).__init__()
+        self.combined_feature_encoder = Pyramidal_feature_encoder(
+            output_channels*kernel_size*kernel_size, 2*input_channels, dropout)
+        self.past_feature_encoder = Pyramidal_feature_encoder(
+            output_channels, input_channels, dropout)
+        self.current_feature_encoder = Pyramidal_feature_encoder(
+            output_channels, input_channels, dropout)
+        self.past_kernel = Kernel_estimation(kernel_size)
+        self.current_kernel = Kernel_estimation(kernel_size)
+
+    def forward(self, last_blur, current_blur):
+        # print("last_blur.shape", last_blur.shape)
+        last_blur_features, last_blur_feature_scale = self.past_feature_encoder(
+            last_blur)
+        current_blur_features, current_blur_feature_scale = self.current_feature_encoder(
+            current_blur)
+        combined_features, combined_feature_scale = self.combined_feature_encoder(
+            torch.cat((last_blur, current_blur), dim=1))
+
+        # print("last_blur_features.shape", last_blur_features.shape)
+        # print("current_blur_features.shape", current_blur_features.shape)
+        # print("combined_features.shape", combined_features.shape)
+
+        past_features_0 = self.past_kernel(
+            last_blur_feature_scale[0], combined_feature_scale[0])
+        current_features_0 = self.current_kernel(
+            last_blur_feature_scale[0], combined_feature_scale[0])
+
+        # print("past_features_0.shape", past_features_0.shape)
+
+        past_features_1 = self.past_kernel(
+            last_blur_feature_scale[1], combined_feature_scale[1])
+        current_features_1 = self.current_kernel(
+            last_blur_feature_scale[1], combined_feature_scale[1])
+
+        past_features_2 = self.past_kernel(
+            last_blur_feature_scale[2], combined_feature_scale[2])
+        current_features_2 = self.current_kernel(
+            last_blur_feature_scale[2], combined_feature_scale[2])
+
+        last_scale_feature = 0.5*(past_features_2 + current_features_2)
+
+        features = [0.5*(past_features_0 + current_features_0), 0.5*(past_features_1 +
+                                                                     current_features_1), 0.5*(past_features_2 + current_features_2)]
+
+        return last_scale_feature, features, current_blur_features, current_blur_feature_scale
 
 
 class Feature_forcaster(nn.Module):
@@ -179,16 +232,16 @@ class Feature_forcaster(nn.Module):
         self.feature_projector1 = nn.Sequential(
             nn.Linear(current_in_channels, current_in_channels),
             nn.ReLU(inplace=True),
-            nn.Linear(current_in_channels, current_in_channels),
-            nn.ReLU(inplace=True),
+            # nn.Linear(current_in_channels, current_in_channels),
+            # nn.ReLU(inplace=True),
             nn.Linear(current_in_channels, out_channels),
             nn.ReLU(inplace=True)
         )
         self.feature_projector2 = nn.Sequential(
             nn.Linear(history_in_channels, history_in_channels),
             nn.ReLU(inplace=True),
-            nn.Linear(history_in_channels, history_in_channels),
-            nn.ReLU(inplace=True),
+            # nn.Linear(history_in_channels, history_in_channels),
+            # nn.ReLU(inplace=True),
             nn.Linear(history_in_channels, out_channels),
             nn.ReLU(inplace=True)
         )
@@ -199,10 +252,16 @@ class Feature_forcaster(nn.Module):
         self.softmax1 = nn.Softmax(dim=1)
         self.softmax2 = nn.Softmax(dim=2)
 
-    def forward(self, sharp_features, history_encoding, current_encoding):
+    def forward(self, sharp_features_in, history_encoding_in, current_encoding_in):
         # sharp encoding : [batch, in_channel, H, W]
         # history encoding : [batch, in_channel, H, W]
         # current encoding : [batch, out_channel, H, W]
+        sharp_features = posemb_sincos_2d(
+            sharp_features_in) + sharp_features_in
+        history_encoding = posemb_sincos_2d(
+            history_encoding_in) + history_encoding_in
+        current_encoding = posemb_sincos_2d(
+            current_encoding_in) + current_encoding_in
         N, fC, fH, fW = current_encoding.shape
         # project each features from [batch, in_channel, H, W] to [batch, out_channel, H, W]
         projected_sharp_features = sharp_features.permute(1, 0, 2, 3)
@@ -305,16 +364,33 @@ def warp(features, flow):
     return output*mask
 
 
+def posemb_sincos_2d(patches, temperature=1000, dtype=torch.float32):
+    _, dim, h, w, device, dtype = *patches.shape, patches.device, patches.dtype
+    # print(patches.shape, h, w, dim, device, dtype)
+    y, x = torch.meshgrid(torch.arange(h, device=device),
+                          torch.arange(w, device=device))
+    # print(y.shape, x.shape)
+    assert (dim % 4) == 0, 'feature dimension must be multiple of 4 for sincos emb'
+    omega = torch.arange(dim // 4, device=device) / (dim // 4 - 1)
+    omega = 1. / (temperature ** omega)
+
+    y = y.flatten()[:, None] * omega[None, :]
+    x = x.flatten()[:, None] * omega[None, :]
+    pe = torch.cat((x.sin(), x.cos(), y.sin(), y.cos()), dim=1)
+    pe = pe.reshape(1, h, w, dim).permute(0, 3, 1, 2)
+    return pe.type(dtype)
+
+
 if __name__ == "__main__":
-    model = Feature_extractor(128, 3, 4)
-    x = torch.randn(8, 3, 128, 128)
-    y, attn_map, encoded_features, feature_scale = model(x)
-    # print(attn_map.shape)
-    print(feature_scale[0].shape)
-    print(feature_scale[1].shape)
-    print(feature_scale[2].shape)
-    # model2 = Feature_forcaster(128,128,8)
-    # y2, corr_map, co_ord = model2(y, encoded_features, encoded_features)
+    # model = Feature_extractor(128, 3, 8).cuda()
+    x = torch.randn(8, 128, 32, 32).to('cuda')
+    # # y, y_cache = model(x)
+    # # print(y.shape)
+    # # print(y_cache[0].shape, y_cache[1].shape, y_cache[2].shape)
+    # attn_features, attn_map, features, feature_scale = model(x)
+    # print(attn_features.shape, attn_map.shape, features.shape)
+    # model2 = Feature_forcaster(128,128,128,8).cuda()
+    # y2, corr_map, co_ord = model2(x,x,x)
     # print(y2.shape, corr_map.shape, co_ord)
     # y3 = warp(y2,co_ord)
     # print(y3.shape)

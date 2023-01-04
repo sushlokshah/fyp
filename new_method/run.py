@@ -1,4 +1,5 @@
 from __future__ import print_function, division
+import torchvision.transforms as transforms
 from utils.loss import PSNR, SSIM
 from utils.visualization import visualize
 from datasets.dataloader import Gopro, get_transform
@@ -233,6 +234,12 @@ def test(model, args):
     transform = get_transform(args, 'test')
     print("training augmentation: ", transform)
 
+    invTrans = transforms.Compose([transforms.Normalize(mean=[0., 0., 0.],
+                                                        std=[1/0.5, 1/0.5, 1/0.5]),
+                                   transforms.Normalize(mean=[-0.5, -0.5, -0.5],
+                                                        std=[1., 1., 1.]),
+                                   ])
+
     testing_data = Gopro(args, transform, "train")
     test_loader = torch.utils.data.DataLoader(
         testing_data, batch_size=args.testing_parameters['batch_size'], shuffle=False, num_workers=args.num_workers, pin_memory=True, drop_last=True)
@@ -284,7 +291,7 @@ def test(model, args):
             if not os.path.exists(os.path.join(args.visualization_path, "test/blur")):
                 os.makedirs(os.path.join(args.visualization_path, "test/blur"))
 
-            blur_img_cpu = blur_img.squeeze(0).cpu().detach()
+            blur_img_cpu = invTrans(blur_img.squeeze(0).cpu().detach())
             torch_utils.save_image(blur_img_cpu, args.visualization_path + "test/blur/" +
                                    args.name + "_" + args.dataset + "_train" + "_step_" + str(i) + ".png")
 
