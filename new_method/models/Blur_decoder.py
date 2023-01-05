@@ -8,7 +8,7 @@ import torchvision
 import torch.nn.functional as F
 import torch.optim as optim
 import os
-from models.encoder import Deblurring_net_encoder, Feature_forcaster, Feature_extractor
+from models.encoder import Deblurring_net_encoder, Feature_forcaster, Feature_extractor, Feature_predictor
 from models.decoder import Refinement_Decoder
 from models.positional_encoding import Positional_encoding
 from utils.loss import KLCriterion, PSNR, SSIM, SmoothMSE
@@ -68,29 +68,44 @@ class Blur_decoder(nn.Module):
         else:
             self.prob_for_frame_drop = 0
         
-        self.sharp_encoder = Deblurring_net_encoder(self.args.blur_decoder["sharp_encoder"]["output_channels"],self.args.blur_decoder["sharp_encoder"]["input_channels"],self.args.blur_decoder["sharp_encoder"]["kernel_size"],dropout=self.dropout)
-        # self.blur_encoder = Feature_extractor(self.args.blur_decoder['blur_encoder']['output_channels'], self.args.blur_decoder['blur_encoder']['input_channels'], self.args.blur_decoder['blur_encoder']['nheads'],self.dropout)
-        
+        #################################################################
+        # Sharp image feature generator along with blur feature encoding
+        #################################################################
+        self.sharp_encoder = Deblurring_net_encoder(self.args.blur_decoder["sharp_encoder"]["output_channels"],
+                                                    self.args.blur_decoder["sharp_encoder"]["input_channels"],
+                                                    self.args.blur_decoder["sharp_encoder"]["kernel_size"],
+                                                    dropout=self.dropout)
+        #################################################################
         # positional encoding
-        # self.pos_encoder = Positional_encoding(
-            # self.args.blur_decoder["positional"]['output_channels'])
+        #################################################################
+        self.pos_encoder = Positional_encoding(
+            self.args.blur_decoder["positional"]['output_channels'])
         
-        # history_in_channels = self.args.blur_decoder['blur_encoder']['output_channels'] + self.args.blur_decoder['positional']['output_channels']
-        # current_in_channels = self.args.blur_decoder['sharp_encoder']['output_channels'] + self.args.blur_decoder['positional']['output_channels'] + 2
-        # #  history_in_channels,current_in_channels, out_channels, nheads, dropout = 0
-        # self.feature_forcasting = Feature_forcaster(history_in_channels, current_in_channels, self.args.blur_decoder['sharp_encoder']['output_channels'], self.args.blur_decoder['feature_forcasting']['nheads'], self.dropout)
-        self.decoder = Refinement_Decoder(self.args.blur_decoder['decoder']['output_channels'], self.args.blur_decoder['decoder']['input_channels'])
-        self.refinement_max_scale = nn.Sequential(
-            nn.Conv2d(2*self.args.blur_decoder['decoder']['output_channels'], self.args.blur_decoder['decoder']['output_channels'], kernel_size=3, stride=1, padding=1),
-            nn.ReLU(),
-            nn.Conv2d(self.args.blur_decoder['decoder']['output_channels'], self.args.blur_decoder['decoder']['output_channels'], kernel_size=3, stride=1, padding=1),
-            nn.ReLU(),
-            nn.Conv2d(self.args.blur_decoder['decoder']['output_channels'], self.args.blur_decoder['decoder']['output_channels'], kernel_size=3, stride=1, padding=1),
-            nn.Sigmoid()
-        )
+        #################################################################
+        # feature forecastor from sharp image and pixel relation co-variance
+        #################################################################
+        self.feature_predictor = Feature_predictor(self.args.blur_decoder["sharp_encoder"]["output_channels"],
+                                                   self.args.blur_decoder["sharp_encoder"]["output_channels"],
+                                                   self.args.blur_decoder["positional"]['output_channels'],
+                                                   self.args.feature_predictor["nheads"],
+                                                   dropout=self.dropout)
+        
+        
+        #################################################################
+        # decoder and final refinement 
+        #################################################################
+        self.decoder = Refinement_Decoder(self.args.blur_decoder['decoder']['output_channels'], 
+                                          self.args.blur_decoder['decoder']['input_channels'])
+        ##################################################################
+        
+        
+        ##################################################################
+        # losses and metric
+        ##################################################################
         self.mse_criterion = nn.L1Loss()
         self.ssim_criterion = SSIM()
         self.psnr_criterion = PSNR()
+        
         
         if args.test != True:
             self.init_optimizer()
@@ -105,14 +120,26 @@ class Blur_decoder(nn.Module):
     
     def train_image_deblurring(self, past_blur_image, current_blur_image, sharp_image):
         
-        # encoder
+        #################################################################
+        # Sharp image feature generator along with blur feature encoding
+        #################################################################
         sharp_feature, sharp_feature_scale, current_blur_features, current_blur_feature_scale = self.sharp_encoder(past_blur_image,current_blur_image)
-        # print(sharp_feature.shape)
-        # decoder
-        max_scale_refinement = self.refinement_max_scale(torch.cat((past_blur_image, current_blur_image), dim=1))
         
+        
+        
+        
+        
+        #################################################################
+        # decoder and final refinement 
+        #################################################################
+        # max_scale_refinement = self.refinement_max_scale(torch.cat((past_blur_image, current_blur_image), dim=1))
         current_sharp_image = self.decoder(sharp_feature, sharp_feature_scale)
-        current_sharp_image = 0.6*current_sharp_image + 0.4*max_scale_refinement
+        # current_sharp_image = 0.6*current_sharp_image + 0.4*max_scale_refinement
+        
+        
+        ##################################################################
+        # losses and metric
+        ##################################################################
         self.deblurring_reconstruction_loss = self.mse_criterion(current_sharp_image, sharp_image)
         self.deblurring_ssim = self.ssim_criterion(current_sharp_image, sharp_image)
         self.deblurring_psnr = self.psnr_criterion(current_sharp_image, sharp_image)

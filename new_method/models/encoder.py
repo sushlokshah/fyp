@@ -117,10 +117,16 @@ class Pyramidal_feature_encoder(nn.Module):
         self.norm2 = nn.BatchNorm2d(self.output_channels//2)
         self.norm3 = nn.BatchNorm2d(self.output_channels)
 
+        self.conv_level1 = nn.Conv2d(input_channels, input_channels
+                                     , kernel_size=3, stride=1, padding=1)
         self.conv1 = nn.Conv2d(input_channels, self.output_channels //
-                               4, kernel_size=7, stride=2, padding=3)  # H/2,W/2
+                               4, kernel_size=7, stride=2, padding=3)# H/2,W/2
+        self.conv_level2 = nn.Conv2d(self.output_channels//4, self.output_channels //
+                               4, kernel_size=3, stride=1, padding=1)
         self.conv2 = nn.Conv2d(self.output_channels//4, self.output_channels //
-                               2, kernel_size=3, stride=2, padding=1)  # H/4,W/4
+                               2, kernel_size=3, stride=2, padding=1)# H/4,W/4
+        self.conv_level3 = nn.conv2d(self.output_channels//2, self.output_channels//2,
+                               kernel_size=3, stride=1, padding=1)
         self.conv3 = nn.Conv2d(self.output_channels//2, self.output_channels,
                                kernel_size=3, stride=2, padding=1)  # H/8 W/8
 
@@ -134,14 +140,17 @@ class Pyramidal_feature_encoder(nn.Module):
     def forward(self, x):
 
         # print(x.shape)
-        f1 = F.relu(self.conv1(x), inplace=True)
-        f2 = F.relu(self.conv2(f1), inplace=True)
-        f3 = F.relu(self.conv3(f2), inplace=True)
+        f1 = F.relu(self.conv_level1(x),inplace=True)
+        f11 = F.relu(self.conv1(f1), inplace=True)
+        f2 = F.relu(self.conv_level2(f11),inplace=True)
+        f22 = F.relu(self.conv2(f2), inplace=True)
+        f3 = F.relu(self.conv_level3(f22), inplace=True)
+        f4 = F.relu(self.conv3(f3), inplace=True)
 
         if self.dropout is not None:
-            output = self.dropout(f3)
+            output = self.dropout(f4)
         else:
-            output = f3
+            output = f4
         return output, [f1, f2, f3]
 
 
@@ -203,22 +212,27 @@ class Deblurring_net_encoder(nn.Module):
         past_features_0 = self.past_kernel(
             last_blur_feature_scale[0], combined_feature_scale[0])
         current_features_0 = self.current_kernel(
-            last_blur_feature_scale[0], combined_feature_scale[0])
+            current_blur_feature_scale[0], combined_feature_scale[0]) # H*w
 
         # print("past_features_0.shape", past_features_0.shape)
 
         past_features_1 = self.past_kernel(
             last_blur_feature_scale[1], combined_feature_scale[1])
         current_features_1 = self.current_kernel(
-            last_blur_feature_scale[1], combined_feature_scale[1])
+            current_blur_feature_scale[1], combined_feature_scale[1]) # H/2 *W/2
 
         past_features_2 = self.past_kernel(
             last_blur_feature_scale[2], combined_feature_scale[2])
         current_features_2 = self.current_kernel(
-            last_blur_feature_scale[2], combined_feature_scale[2])
+            current_blur_feature_scale[2], combined_feature_scale[2]) # H/4 * W/4
 
-        last_scale_feature = 0.5*(past_features_2 + current_features_2)
+        past_features_3 = self.past_kernel(
+            last_blur_features, combined_features)
+        current_features_3 = self.current_kernel(
+            current_blur_features, combined_feature_scale[2]) # H/4 * W/4
 
+        last_scale_feature = 0.5*past_features_3 + 0.5*current_features_3
+        
         features = [0.5*(past_features_0 + current_features_0), 0.5*(past_features_1 +
                                                                      current_features_1), 0.5*(past_features_2 + current_features_2)]
 
@@ -335,6 +349,226 @@ class Feature_forcaster(nn.Module):
 
         return attn_features, correlation_map, coords_xy
 
+
+class Feature_predictor(nn.Module):
+    def __init__(self,sharp_feature_channels, blurred_feature_channels, generation_time_encoding_channels, nheads, dropout=0):
+        super(Feature_predictor, self).__init__()
+        input_channels = sharp_feature_channels + blurred_feature_channels + generation_time_encoding_channels + 1
+        output_channels = sharp_feature_channels
+        #################################################################
+        # for sharing blur information using attention
+        #################################################################
+        self.blur_feature_projector = nn.Sequential(
+            nn.Linear(output_channels, 2*output_channels),
+            nn.ReLU(inplace=True),
+            # nn.Linear(current_in_channels, current_in_channels),
+            # nn.ReLU(inplace=True),
+            nn.Linear(2*output_channels, output_channels),
+            nn.ReLU(inplace=True)
+        )
+        self.blur_self_attention = nn.MultiheadAttention(
+            output_channels, nheads, dropout=dropout, kdim=output_channels, vdim=output_channels)
+        
+        #################################################################
+        # for predicting next frame from sharp image given history and time stamp
+        ################################################################# 
+        self.sharp_feature_projector = nn.Sequential(
+            nn.Linear(input_channels, 2*output_channels),
+            nn.ReLU(inplace=True),
+            # nn.Linear(current_in_channels, current_in_channels),
+            # nn.ReLU(inplace=True),
+            nn.Linear(2*output_channels, output_channels),
+            nn.ReLU(inplace=True)
+        )
+        
+        self.sharp_self_attention = nn.MultiheadAttention(
+            output_channels, nheads, dropout=dropout, kdim=output_channels, vdim=output_channels)
+        
+        #################################################################
+        # cross attention for sampling next image from history
+        #################################################################
+        self.sampler_feature_projector = nn.Sequential(
+            nn.Linear(output_channels + generation_time_encoding_channels + 1, 2*output_channels),
+            nn.ReLU(inplace=True),
+            # nn.Linear(current_in_channels, current_in_channels),
+            # nn.ReLU(inplace=True),
+            nn.Linear(2*output_channels, output_channels),
+            nn.ReLU(inplace=True)
+        )
+        
+        self.cross_attention = nn.MultiheadAttention(
+            output_channels, nheads, dropout=dropout, kdim=output_channels, vdim=output_channels)
+        
+        self.flow_conv1 = nn.Conv2d(2, 2, kernel_size=3, stride=1, padding=1)
+        self.flow_conv2 = nn.Conv2d(2, 2, kernel_size=3, stride=1, padding=1)
+        self.flow_conv3 = nn.Conv2d(2, 2, kernel_size=3, stride=1, padding=1)
+        
+    def forward(self, blur_feature, blur_feature_scale, sharp_feature, sharp_feature_scale, time_encoding):
+        N, fC, fH, fW = blur_feature.shape
+        #############################################################
+        # blur attention encoding
+        #############################################################
+        features = posemb_sincos_2d(blur_feature) + blur_feature
+        
+        projected_blur_feature = features.permute(1, 0, 2, 3)
+        projected_blur_feature = projected_blur_feature.reshape(
+            projected_blur_feature.shape[0], -1)
+        projected_blur_feature = projected_blur_feature.permute(1, 0)
+        
+        projected_blur_feature = self.blur_feature_projector(projected_blur_feature)
+        projected_blur_feature = projected_blur_feature.permute(1, 0)
+        projected_blur_feature = projected_blur_feature.reshape(
+            projected_blur_feature.shape[0], blur_feature.shape[0], blur_feature.shape[2], blur_feature.shape[3])
+        projected_blur_feature = projected_blur_feature.permute(1, 0, 2, 3)
+
+        input_features1 = projected_blur_feature.reshape(
+            projected_blur_feature.shape[0], projected_blur_feature.shape[1], -1)
+        
+        input_features1 = input_features1.permute(2, 0, 1)
+        
+        blur_attn_features, blur_attn_map = self.blur_self_attention(input_features1, input_features1, input_features1)
+        
+        blur_attn_features = blur_attn_features.permute(1, 2, 0)
+        blur_attn_features = blur_attn_features.reshape(projected_blur_feature.shape)
+        blur_attn_map = blur_attn_map.reshape(projected_blur_feature.shape[0], projected_blur_feature.shape[2],
+                                    projected_blur_feature.shape[3], projected_blur_feature.shape[2], projected_blur_feature.shape[3])
+        
+        y = blur_attn_map.permute(0, 3, 4, 1, 2).reshape(blur_attn_map.shape[0], blur_attn_map.shape[3], blur_attn_map.shape[4], -1).max(dim=3)[0]
+        
+        range_variation  = (1/y)*(1/(2*3.1415))*(1/blur_attn_map.shape[3])
+        
+        #_____________________________________________________________
+        # output: blur_attn_features, blur_attn_map, range_variation
+        #_____________________________________________________________
+        
+        #############################################################
+        # next frame prediction using sharp image
+        #############################################################
+        
+        latent_features = posemb_sincos_2d(sharp_feature) + sharp_feature
+        latent_features = torch.cat([latent_features, blur_attn_features, time_encoding,range_variation], dim=1)
+        
+        projected_latent_features = latent_features.permute(1, 0, 2, 3)
+        projected_latent_features = projected_latent_features.reshape(
+            projected_latent_features.shape[0], -1)
+        projected_latent_features = projected_latent_features.permute(1, 0)
+        
+        projected_latent_features = self.sharp_feature_projector(projected_latent_features)
+        projected_latent_features = projected_latent_features.permute(1, 0)
+        projected_latent_features = projected_latent_features.reshape(
+            projected_latent_features.shape[0], latent_features.shape[0], latent_features.shape[2], latent_features.shape[3])
+        projected_latent_features = projected_latent_features.permute(1, 0, 2, 3) #n,D,h,w
+        
+        input_features2 = projected_latent_features.reshape(
+            projected_latent_features.shape[0], projected_latent_features.shape[1], -1)
+        
+        input_features2 = input_features2.permute(2, 0, 1) # h*w, n, D
+        
+        v1 = sharp_feature.reshape(
+            sharp_feature.shape[0], sharp_feature.shape[1], -1)
+        v1 = v1.permute(2, 0, 1)
+        
+        new_features_predicted, predictor_map = self.sharp_self_attention(input_features2, input_features2, sharp_feature)
+        
+        new_features_predicted = new_features_predicted.permute(1, 2, 0) # n, D, h*w
+        new_features_predicted = new_features_predicted.reshape(latent_features.shape)
+        predictor_map_4d = predictor_map.reshape(latent_features.shape[0], latent_features.shape[2],
+                                    latent_features.shape[3], latent_features.shape[2], latent_features.shape[3])
+        
+        #_____________________________________________________________
+        #output:  new_features, predictor_map
+        #_____________________________________________________________
+        
+        
+        ##############################################################
+        # next frame sampler
+        ##############################################################
+        key = posemb_sincos_2d(sharp_feature) + sharp_feature
+        key = key.reshape(
+            key.shape[0], key.shape[1], -1)
+        key = key.permute(2, 0, 1)
+        
+        sampled_feature = torch.cat([posemb_sincos_2d(blur_attn_features) + blur_attn_features,time_encoding,range_variation], dim = 1)
+        
+        projected_sampled_image_feature = sampled_feature.permute(1, 0, 2, 3)
+        projected_sampled_image_feature = projected_sampled_image_feature.reshape(
+            projected_sampled_image_feature.shape[0], -1)
+        projected_sampled_image_feature = projected_sampled_image_feature.permute(1, 0)
+        
+        projected_sampled_image_feature = self.sampler_feature_projector(projected_sampled_image_feature)
+        projected_sampled_image_feature = projected_sampled_image_feature.permute(1, 0)
+        projected_sampled_image_feature = projected_sampled_image_feature.reshape(
+            projected_sampled_image_feature.shape[0], sampled_feature.shape[0], sampled_feature.shape[2], sampled_feature.shape[3])
+        projected_sampled_image_feature = projected_sampled_image_feature.permute(1, 0, 2, 3) #n,D,h,w
+        
+        input_features3 = projected_sampled_image_feature.reshape(
+            projected_sampled_image_feature.shape[0], projected_sampled_image_feature.shape[1], -1)
+        
+        input_features3 = input_features3.permute(2, 0, 1) # h*w, n, D
+        
+        new_sampled_features, sampled_map = self.cross_attention(input_features3, key, v1)
+        
+        new_sampled_features = new_sampled_features.permute(1, 2, 0) # n, D, h*w
+        new_sampled_features = new_sampled_features.reshape(sampled_feature.shape)
+        sampled_map_4d = sampled_map.reshape(sampled_feature.shape[0], sampled_feature.shape[2],
+                                    sampled_feature.shape[3], sampled_feature.shape[2], sampled_feature.shape[3])
+        
+        
+        ###############################################################
+        # belief propagation
+        ###############################################################
+        final_transformation_map = predictor_map*sampled_map
+        
+        ###############################################################
+        # flow computation
+        ###############################################################
+        
+        match12, match_idx12 = final_transformation_map.max(dim=2)  # (N, fH*fW)
+        match21, match_idx21 = final_transformation_map.max(dim=1)
+
+        for b_idx in range(N):
+            match21_b = match21[b_idx, :]
+            match_idx12_b = match_idx12[b_idx, :]
+            match21[b_idx, :] = match21_b[match_idx12_b]
+
+        matched = (match12 - match21) == 0  # (N, fH*fW)
+        coords_index = torch.arange(
+            fH*fW).unsqueeze(0).repeat(N, 1).to(sharp_feature.device)
+        coords_index[matched] = match_idx12[matched]
+
+        # matched coords
+        coords_index = coords_index.reshape(N, fH, fW)
+        coords_x = coords_index % fW
+        coords_y = coords_index // fW
+
+        coords_xy = torch.stack([coords_x, coords_y], dim=1).float()
+        coords_xy_3 = self.flow_conv1(coords_xy_3)
+        ###############################################################
+        # multi-scale feature warping
+        ###############################################################
+        sharp_feature_scale[2] = warp(sharp_feature_scale[2], -1*coords_xy)
+        
+        new_size = (2* coords_xy.shape[2], 2* coords_xy.shape[3])
+        coords_xy_2 = 2 * F.interpolate(coords_xy, size=new_size, mode='bilinear', align_corners=True)
+        # print(sharp_init_feature_scale[1].max())
+        coords_xy_2 = self.flow_conv2(coords_xy_2)
+        sharp_feature_scale[1] = warp(sharp_feature_scale[1], -1*coords_xy_2)
+        
+        
+        new_size = (2* coords_xy_2.shape[2], 2* coords_xy_2.shape[3])
+        coords_xy_3 = 2 * F.interpolate(coords_xy_2, size=new_size, mode='bilinear', align_corners=True)
+        # print(sharp_init_feature_scale[1].max())
+        coords_xy_3 = self.flow_conv3(coords_xy_3)
+        sharp_feature_scale[0] = warp(sharp_feature_scale[0], -1*coords_xy_3)
+
+        final_features = new_sampled_features*0.4 + sharp_feature_scale[2]*0.2 + new_features_predicted*0.4
+        
+        return blur_attn_features, blur_attn_features, final_features, sharp_feature_scale    
+        
+        
+        
+    
+# class Feature_sampler(nn.Module):    
 
 def warp(features, flow):
     B, C, H, W = features.size()

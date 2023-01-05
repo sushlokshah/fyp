@@ -113,27 +113,32 @@ class Refinement_Decoder(nn.Module):
 
         self.dconv1 = nn.ConvTranspose2d(
             self.input_channels, self.input_channels//2, kernel_size=4, stride=2, padding=1)
+        self.deconv_level2 = nn.ConvTranspose2d(
+            self.input_channels//2, self.input_channels//2, kernel_size=3, stride=1, padding=1)
         self.dconv2 = nn.ConvTranspose2d(
             self.input_channels//2, self.input_channels//4, kernel_size=4, stride=2, padding=1)
+        self.deconv_level1 = nn.ConvTranspose2d(
+            self.input_channels//4, self.input_channels//4, kernel_size=3, stride=1, padding=1)
         self.dconv3 = nn.ConvTranspose2d(
             self.input_channels//4, self.output_channels, kernel_size=8, stride=2, padding=3)
+        self.deconv_level0 = nn.ConvTranspose2d(
+            self.output_channels, self.output_channels, kernel_size=3, stride=1, padding=1)
+        
 
-        self.refinement = refinement_module(self.output_channels)
-
-    def forward(self, x, cache, warped_input_image=None):
-        f1 = F.relu(self.norm1(self.dconv1(x)))
+    def forward(self, x, cache):
+        f1 = F.relu(self.norm1(self.dconv1(x))) #h/4*w/4*outputput_channels//2
         # print(f1)
-        f2 = F.relu(self.norm2(self.dconv2((f1 + cache[1])/2)))
+        f11 = F.relu(self.norm1(self.deconv_level2((f1 + cache[2])/2)))
+        
+        f2 = F.relu(self.norm2(self.dconv2(f11))) #h/2*w/2*outputput_channels//4
+        
+        f22 = F.relu(self.norm2(self.deconv_level1((f1 + cache[1])/2)))
         # print(f2)
-        f3 = F.relu(self.norm3(self.dconv3((f2 + cache[0])/2)))
+        f3 = F.relu(self.norm3(self.dconv3(f22))) #h*w*outputput_channels
+        
+        f33 = F.sigmoid(self.norm3(self.deconv_level0((f2 + cache[0])/2)))
         # print(f3)
-        if warped_input_image is not None:
-            f3 = self.refinement(f3, warped_input_image)
-        else:
-            f3 = self.refinement(f3)
-        # print(f3)
-        # sys.exit(0)
-        return f3
+        return f33
 
 
 class refinement_module(nn.Module):
