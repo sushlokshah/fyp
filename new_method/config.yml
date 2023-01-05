@@ -97,7 +97,7 @@ hyperparameters:
 # hyperparameters for training
 training_parameters:
   lr: 0.0005
-  batch_size: 50
+  batch_size: 40
   num_epochs: 100
   prob_for_frame_drop: 0
   dropout: 0.2
@@ -153,3 +153,9 @@ blur_decoder:
   decoder:
     output_channels: 3
     input_channels: 128
+
+  positional:
+    output_channels: 16
+
+  feature_predictor:
+    nheads: 8

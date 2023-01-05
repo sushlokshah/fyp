@@ -123,21 +123,27 @@ class Refinement_Decoder(nn.Module):
             self.input_channels//4, self.output_channels, kernel_size=8, stride=2, padding=3)
         self.deconv_level0 = nn.ConvTranspose2d(
             self.output_channels, self.output_channels, kernel_size=3, stride=1, padding=1)
-        
 
     def forward(self, x, cache):
-        f1 = F.relu(self.norm1(self.dconv1(x))) #h/4*w/4*outputput_channels//2
-        # print(f1)
+        # h/4*w/4*outputput_channels//2
+        f1 = F.relu(self.norm1(self.dconv1(x)))
+        # print("f1", f1.shape)
+        # print("cache[2]", cache[2].shape)
         f11 = F.relu(self.norm1(self.deconv_level2((f1 + cache[2])/2)))
-        
-        f2 = F.relu(self.norm2(self.dconv2(f11))) #h/2*w/2*outputput_channels//4
-        
-        f22 = F.relu(self.norm2(self.deconv_level1((f1 + cache[1])/2)))
-        # print(f2)
-        f3 = F.relu(self.norm3(self.dconv3(f22))) #h*w*outputput_channels
-        
-        f33 = F.sigmoid(self.norm3(self.deconv_level0((f2 + cache[0])/2)))
-        # print(f3)
+        # print("f11", f11.shape)
+        # h/2*w/2*outputput_channels//4
+        f2 = F.relu(self.norm2(self.dconv2(f11)))
+        # print("f2", f2.shape)
+        # print("cache[1]", cache[1].shape)
+        f22 = F.relu(self.norm2(self.deconv_level1((f2 + cache[1])/2)))
+        # # print(f2)
+        # print("f22", f22.shape)
+        f3 = F.relu(self.norm3(self.dconv3(f22)))  # h*w*outputput_channels
+        # print("f3", f3.shape)
+        # print("cache[0]", cache[0].shape)
+        f33 = F.sigmoid(self.norm3(self.deconv_level0((f3 + cache[0])/2)))
+        # # print(f3)
+        # print("f33", f33.shape)
         return f33
 
 
@@ -182,4 +188,4 @@ if __name__ == '__main__':
     x = torch.randn(8, 128, 16, 16)
     cache = [torch.randn(8, 32, 64, 64), torch.randn(8, 64, 32, 32), x]
     y = model(x, cache)
-    print(y.shape)
+    # print(y.shape)

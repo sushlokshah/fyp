@@ -87,7 +87,7 @@ class Blur_decoder(nn.Module):
         self.feature_predictor = Feature_predictor(self.args.blur_decoder["sharp_encoder"]["output_channels"],
                                                    self.args.blur_decoder["sharp_encoder"]["output_channels"],
                                                    self.args.blur_decoder["positional"]['output_channels'],
-                                                   self.args.feature_predictor["nheads"],
+                                                   self.args.blur_decoder['feature_predictor']["nheads"],
                                                    dropout=self.dropout)
         
         
@@ -113,7 +113,7 @@ class Blur_decoder(nn.Module):
         
     def init_optimizer(self):
         self.sharp_encoder_optimizer = self.optimizer(self.sharp_encoder.parameters(), lr=self.lr, weight_decay=self.args.optimizer["weight_decay"], eps=float(self.args.optimizer["eps"]))
-        self.refinement_max_scale_optimizer = self.optimizer(self.refinement_max_scale.parameters(), lr=self.lr, weight_decay=self.args.optimizer["weight_decay"], eps=float(self.args.optimizer["eps"]))
+        # self.refinement_max_scale_optimizer = self.optimizer(self.refinement_max_scale.parameters(), lr=self.lr, weight_decay=self.args.optimizer["weight_decay"], eps=float(self.args.optimizer["eps"]))
         # self.blur_encoder_optimizer = self.optimizer(self.blur_encoder.parameters(), lr=self.lr, weight_decay=self.args.optimizer["weight_decay"], eps=float(self.args.optimizer["eps"]))
         # self.feature_forcasting_optimizer = self.optimizer(self.feature_forcasting.parameters(), lr=self.lr, weight_decay=self.args.optimizer["weight_decay"], eps=float(self.args.optimizer["eps"]))
         self.decoder_optimizer = self.optimizer(self.decoder.parameters(), lr=self.lr, weight_decay=self.args.optimizer["weight_decay"], eps=float(self.args.optimizer["eps"]))
@@ -149,14 +149,14 @@ class Blur_decoder(nn.Module):
     def update_deblurring(self):
         self.sharp_encoder_optimizer.zero_grad()
         self.decoder_optimizer.zero_grad()
-        self.refinement_max_scale_optimizer.zero_grad()
+        # self.refinement_max_scale_optimizer.zero_grad()
         
         loss = 0.4*self.deblurring_reconstruction_loss + 0.4*torch.exp(-0.05*self.deblurring_psnr) + 0.2*torch.abs(1-self.deblurring_ssim)
         loss.backward(retain_graph=True)
         
         self.sharp_encoder_optimizer.step()
         self.decoder_optimizer.step()
-        self.refinement_max_scale_optimizer.step()
+        # self.refinement_max_scale_optimizer.step()
         
         return loss.item()
     
@@ -200,13 +200,13 @@ class Blur_decoder(nn.Module):
             # 'blur_encoder': self.blur_encoder.state_dict(),
             # 'feature_forcasting': self.feature_forcasting.state_dict(),
             'decoder': self.decoder.state_dict(),
-            'refinement_max_scale': self.refinement_max_scale.state_dict(),
+            # 'refinement_max_scale': self.refinement_max_scale.state_dict(),
             
             'sharp_encoder_optimizer': self.sharp_encoder_optimizer.state_dict(),
             # 'blur_encoder_optimizer': self.blur_encoder_optimizer.state_dict(),
             # 'feature_forcasting_optimizer': self.feature_forcasting_optimizer.state_dict(),
             'decoder_optimizer': self.decoder_optimizer.state_dict(),
-            'refinement_max_scale_optimizer': self.refinement_max_scale_optimizer.state_dict(),
+            # 'refinement_max_scale_optimizer': self.refinement_max_scale_optimizer.state_dict(),
         }   
         torch.save(states, fname)
         
