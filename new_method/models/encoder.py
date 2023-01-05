@@ -141,12 +141,15 @@ class Pyramidal_feature_encoder(nn.Module):
 
         # print(x.shape)
         f1 = F.relu(self.conv_level1(x),inplace=True)
+        print("cache:0 ", f1.shape)
         f11 = F.relu(self.conv1(f1), inplace=True)
         f2 = F.relu(self.conv_level2(f11),inplace=True)
+        print("cache:1 ", f2.shape)
         f22 = F.relu(self.conv2(f2), inplace=True)
         f3 = F.relu(self.conv_level3(f22), inplace=True)
+        print("cache:2 ", f3.shape)
         f4 = F.relu(self.conv3(f3), inplace=True)
-
+        print("output", f4.shape)
         if self.dropout is not None:
             output = self.dropout(f4)
         else:
@@ -198,16 +201,19 @@ class Deblurring_net_encoder(nn.Module):
 
     def forward(self, last_blur, current_blur):
         # print("last_blur.shape", last_blur.shape)
+        print("past blur")
         last_blur_features, last_blur_feature_scale = self.past_feature_encoder(
             last_blur)
+        print("current_blur")
         current_blur_features, current_blur_feature_scale = self.current_feature_encoder(
             current_blur)
+        print("combined")
         combined_features, combined_feature_scale = self.combined_feature_encoder(
             torch.cat((last_blur, current_blur), dim=1))
 
         # print("last_blur_features.shape", last_blur_features.shape)
         # print("current_blur_features.shape", current_blur_features.shape)
-        # print("combined_features.shape", combined_features.shape)
+        print("combined_features.shape", combined_features.shape)
 
         past_features_0 = self.past_kernel(
             last_blur_feature_scale[0], combined_feature_scale[0])
