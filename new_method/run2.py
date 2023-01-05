@@ -138,34 +138,35 @@ def train(model, args):
             # gen_seq = gen_seq.cuda()
             if args.mode == "train_image_deblurring":
                 gen_seq = gen_seq.permute(1, 0, 2, 3, 4)
-                # print(gen_seq.shape)
                 gen_seq = gen_seq[0].cuda()
                 generated_seq, reconstruction_loss, metric = model(
                     gen_seq, past_img, blur_img, args.mode)
             elif args.mode == "train_forcaster_sequence":
-                step_size = np.random.randint(3, 6)
+                # step_size = np.random.randint(3, 6)
                 gen_seq = gen_seq.permute(1, 0, 2, 3, 4)
-                gen_seq = gen_seq[::step_size]
+                # gen_seq = gen_seq[::step_size]
                 gen_seq = gen_seq.cuda()
                 generated_seq, reconstruction_loss, metric = model(
                     gen_seq, past_img, blur_img, args.mode)
             elif args.mode == "train_sequence":
-                step_size = np.random.randint(3, 6)
+                # step_size = np.random.randint(3, 6)
                 gen_seq = gen_seq.permute(1, 0, 2, 3, 4)
-                gen_seq = gen_seq[::step_size]
+                # gen_seq = gen_seq[::step_size]
                 gen_seq = gen_seq.cuda()
                 generated_seq, reconstruction_loss, metric = model(
                     gen_seq, past_img, blur_img, args.mode)
             elif args.mode == "train_forcaster_image":
-                random_index = np.random.randint(0, 8)
+                gen_seq = gen_seq.permute(1, 0, 2, 3, 4)
+                random_index = np.random.randint(0, len(gen_seq))
                 gen_seq = data['gen_seq'][random_index].cuda()
                 generated_seq, reconstruction_loss, metric = model(
-                    gen_seq, past_img, blur_img, args.mode, gen_index=random_index)
+                    gen_seq, past_img, blur_img, args.mode, gen_index=random_index, gen_length= len(gen_seq))
             elif args.mode == "train_image_pred":
-                random_index = np.random.randint(0, 8)
+                gen_seq = gen_seq.permute(1, 0, 2, 3, 4)
+                random_index = np.random.randint(0, len(gen_seq))
                 gen_seq = data['gen_seq'][random_index].cuda()
                 generated_seq, reconstruction_loss, metric = model(
-                    gen_seq, past_img, blur_img, args.mode, gen_index=random_index)
+                    gen_seq, past_img, blur_img, args.mode, gen_index=random_index, gen_length= len(gen_seq))
 
             # loss and backprop
             if args.mode == "train_image_deblurring":
@@ -264,29 +265,31 @@ def test(model, args, writer, step):
                 generated_seq, reconstruction_loss, metric = model(
                     gen_seq, past_img, blur_img, args.mode)
             elif args.mode == "train_forcaster_sequence":
-                step_size = np.random.randint(3, 6)
+                # step_size = np.random.randint(3, 6)
                 gen_seq = gen_seq.permute(1, 0, 2, 3, 4)
-                gen_seq = gen_seq[::step_size]
+                # gen_seq = gen_seq[::step_size]
                 gen_seq = gen_seq.cuda()
                 generated_seq, reconstruction_loss, metric = model(
                     gen_seq, past_img, blur_img, args.mode)
             elif args.mode == "train_sequence":
-                step_size = np.random.randint(3, 6)
+                # step_size = np.random.randint(3, 6)
                 gen_seq = gen_seq.permute(1, 0, 2, 3, 4)
-                gen_seq = gen_seq[::step_size]
+                # gen_seq = gen_seq[::step_size]
                 gen_seq = gen_seq.cuda()
                 generated_seq, reconstruction_loss, metric = model(
                     gen_seq, past_img, blur_img, args.mode)
             elif args.mode == "train_forcaster_image":
-                random_index = np.random.randint(0, 8)
+                gen_seq = gen_seq.permute(1, 0, 2, 3, 4)
+                random_index = np.random.randint(0, len(gen_seq))
                 gen_seq = data['gen_seq'][random_index].cuda()
                 generated_seq, reconstruction_loss, metric = model(
-                    gen_seq, past_img, blur_img, args.mode, gen_index=random_index)
+                    gen_seq, past_img, blur_img, args.mode, gen_index=random_index, gen_length= len(gen_seq))
             elif args.mode == "train_image_pred":
-                random_index = np.random.randint(0, 8)
+                gen_seq = gen_seq.permute(1, 0, 2, 3, 4)
+                random_index = np.random.randint(0, len(gen_seq))
                 gen_seq = data['gen_seq'][random_index].cuda()
                 generated_seq, reconstruction_loss, metric = model(
-                    gen_seq, past_img, blur_img, args.mode, gen_index=random_index)
+                    gen_seq, past_img, blur_img, args.mode, gen_index=random_index, gen_length= len(gen_seq))
 
             total_loss += reconstruction_loss
             total_psnr += metric[0]
