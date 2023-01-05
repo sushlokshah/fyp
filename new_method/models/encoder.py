@@ -214,22 +214,22 @@ class Deblurring_net_encoder(nn.Module):
         # print("last_blur_features.shape", last_blur_features.shape)
         # print("current_blur_features.shape", current_blur_features.shape)
         # print("combined_features.shape", combined_features.shape)
-        print("combined_feature_scale[0].shape", combined_feature_scale[0].shape)
-        print("combined_feature_scale[1].shape", combined_feature_scale[1].shape)
-        print("combined_feature_scale[2].shape", combined_feature_scale[2].shape)
+        # print("combined_feature_scale[0].shape", combined_feature_scale[0].shape)
+        # print("combined_feature_scale[1].shape", combined_feature_scale[1].shape)
+        # print("combined_feature_scale[2].shape", combined_feature_scale[2].shape)
         
-        print("last_blur_feature_scale[0].shape", last_blur_feature_scale[0].shape)
-        print("last_blur_feature_scale[1].shape", last_blur_feature_scale[1].shape)
-        print("last_blur_feature_scale[2].shape", last_blur_feature_scale[2].shape)
+        # print("last_blur_feature_scale[0].shape", last_blur_feature_scale[0].shape)
+        # print("last_blur_feature_scale[1].shape", last_blur_feature_scale[1].shape)
+        # print("last_blur_feature_scale[2].shape", last_blur_feature_scale[2].shape)
         
-        print("current_blur_feature_scale[0].shape", current_blur_feature_scale[0].shape)
-        print("current_blur_feature_scale[1].shape", current_blur_feature_scale[1].shape)
-        print("current_blur_feature_scale[2].shape", current_blur_feature_scale[2].shape)
+        # print("current_blur_feature_scale[0].shape", current_blur_feature_scale[0].shape)
+        # print("current_blur_feature_scale[1].shape", current_blur_feature_scale[1].shape)
+        # print("current_blur_feature_scale[2].shape", current_blur_feature_scale[2].shape)
         
-        past_features_0 = self.past_kernel(
-            last_blur_feature_scale[0], combined_feature_scale[0])
-        current_features_0 = self.current_kernel(
-            current_blur_feature_scale[0], combined_feature_scale[0]) # H*w
+        # past_features_0 = self.past_kernel(
+        #     last_blur_feature_scale[0], combined_feature_scale[0])
+        # current_features_0 = self.current_kernel(
+        #     current_blur_feature_scale[0], combined_feature_scale[0]) # H*w
 
         # print("past_features_0.shape", past_features_0.shape)
 
@@ -250,9 +250,8 @@ class Deblurring_net_encoder(nn.Module):
 
         last_scale_feature = 0.5*past_features_3 + 0.5*current_features_3
         
-        features = [0.5*(past_features_0 + current_features_0), 0.5*(past_features_1 +
+        features = [current_blur_feature_scale[0], 0.5*(past_features_1 +
                                                                      current_features_1), 0.5*(past_features_2 + current_features_2)]
-
         return last_scale_feature, features, current_blur_features, current_blur_feature_scale
 
 
