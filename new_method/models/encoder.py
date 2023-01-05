@@ -125,7 +125,7 @@ class Pyramidal_feature_encoder(nn.Module):
                                4, kernel_size=3, stride=1, padding=1)
         self.conv2 = nn.Conv2d(self.output_channels//4, self.output_channels //
                                2, kernel_size=3, stride=2, padding=1)# H/4,W/4
-        self.conv_level3 = nn.conv2d(self.output_channels//2, self.output_channels//2,
+        self.conv_level3 = nn.Conv2d(self.output_channels//2, self.output_channels//2,
                                kernel_size=3, stride=1, padding=1)
         self.conv3 = nn.Conv2d(self.output_channels//2, self.output_channels,
                                kernel_size=3, stride=2, padding=1)  # H/8 W/8
