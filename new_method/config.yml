@@ -53,7 +53,7 @@ visualization_path: C:\Users\Machine Learning GPU\Desktop\fyp\fyp\new_method\vis
 #optimizer and optimizer specific parameters
 optimizer:
   optimizer_name: AdamW
-  weight_decay: 0.01
+  weight_decay: 0.001
   eps: 1e-08
 
 #learning rate scheduler and scheduler specific parameters
@@ -100,14 +100,14 @@ training_parameters:
   batch_size: 40
   num_epochs: 100
   prob_for_frame_drop: 0
-  dropout: 0.2
+  dropout: 0
 
 # hyperparameters for testing
 testing_parameters:
   batch_size: 64
 
 num_workers: 4
-mode: train_forcaster_sequence
+mode: train_image_deblurring
 # model parameters
 model: blur_decoder
 

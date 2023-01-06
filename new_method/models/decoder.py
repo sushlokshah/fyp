@@ -141,7 +141,7 @@ class Refinement_Decoder(nn.Module):
         f3 = F.relu(self.norm3(self.dconv3(f22)))  # h*w*outputput_channels
         # print("f3", f3.shape)
         # print("cache[0]", cache[0].shape)
-        f33 = F.sigmoid(self.norm3(self.deconv_level0((f3 + cache[0])/2)))
+        f33 = torch.tanh(self.norm3(self.deconv_level0(f3))) + cache[0]
         # # print(f3)
         # print("f33", f33.shape)
         return f33
