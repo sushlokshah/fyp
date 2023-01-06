@@ -107,7 +107,7 @@ testing_parameters:
   batch_size: 64
 
 num_workers: 4
-mode: train_image_deblurring
+mode: train_forcaster_sequence
 # model parameters
 model: blur_decoder
 

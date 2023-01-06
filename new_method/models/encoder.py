@@ -158,6 +158,7 @@ class Pyramidal_feature_encoder(nn.Module):
 
 # multiheaded self attention module over the feature maps
 
+
 class Feature_extractor(nn.Module):
     def __init__(self, output_channels, input_channels, nheads, dropout=0):
         super(Feature_extractor, self).__init__()
@@ -466,6 +467,7 @@ class Feature_predictor(nn.Module):
             blur_attn_map.shape[0], blur_attn_map.shape[3], blur_attn_map.shape[4], -1).max(dim=3)[0]
 
         range_variation = (1/y)*(1/(2*3.1415))*(1/blur_attn_map.shape[3])
+        range_variation = range_variation.unsqueeze(1)
         print("range_variation", range_variation.shape)
         # _____________________________________________________________
         # output: blur_attn_features, blur_attn_map, range_variation
@@ -508,13 +510,13 @@ class Feature_predictor(nn.Module):
         v1 = v1.permute(2, 0, 1)
         print("v1", v1.shape)
         new_features_predicted, predictor_map = self.sharp_self_attention(
-            input_features2, input_features2, sharp_feature)
+            input_features2, input_features2, v1)
         print("new_features_predicted", new_features_predicted.shape)
         new_features_predicted = new_features_predicted.permute(
             1, 2, 0)  # n, D, h*w
         print("new_features_predicted", new_features_predicted.shape)
         new_features_predicted = new_features_predicted.reshape(
-            latent_features.shape)
+            projected_blur_feature.shape)
         print("new_features_predicted", new_features_predicted.shape)
         predictor_map_4d = predictor_map.reshape(latent_features.shape[0], latent_features.shape[2],
                                                  latent_features.shape[3], latent_features.shape[2], latent_features.shape[3])
@@ -539,24 +541,31 @@ class Feature_predictor(nn.Module):
             projected_sampled_image_feature.shape[0], -1)
         projected_sampled_image_feature = projected_sampled_image_feature.permute(
             1, 0)
-        print("projected_sampled_image_feature", projected_sampled_image_feature.shape)
-        projected_sampled_image_feature = self.sampler_feature_projector(projected_sampled_image_feature)
-        projected_sampled_image_feature = projected_sampled_image_feature.permute(1, 0)
+        print("projected_sampled_image_feature",
+              projected_sampled_image_feature.shape)
+        projected_sampled_image_feature = self.sampler_feature_projector(
+            projected_sampled_image_feature)
+        projected_sampled_image_feature = projected_sampled_image_feature.permute(
+            1, 0)
         projected_sampled_image_feature = projected_sampled_image_feature.reshape(
             projected_sampled_image_feature.shape[0], sampled_feature.shape[0], sampled_feature.shape[2], sampled_feature.shape[3])
-        projected_sampled_image_feature = projected_sampled_image_feature.permute(1, 0, 2, 3)  # n,D,h,w
-        print("projected_sampled_image_feature", projected_sampled_image_feature.shape)
-        input_features3 = projected_sampled_image_feature.reshape(projected_sampled_image_feature.shape[0], projected_sampled_image_feature.shape[1], -1)
+        projected_sampled_image_feature = projected_sampled_image_feature.permute(
+            1, 0, 2, 3)  # n,D,h,w
+        print("projected_sampled_image_feature",
+              projected_sampled_image_feature.shape)
+        input_features3 = projected_sampled_image_feature.reshape(
+            projected_sampled_image_feature.shape[0], projected_sampled_image_feature.shape[1], -1)
 
         input_features3 = input_features3.permute(2, 0, 1)  # h*w, n, D
         print("input_features3", input_features3.shape)
         new_sampled_features, sampled_map = self.cross_attention(
             input_features3, key, v1)
-
+        print("new_sampled_features", new_sampled_features.shape)
         new_sampled_features = new_sampled_features.permute(
             1, 2, 0)  # n, D, h*w
         new_sampled_features = new_sampled_features.reshape(
-            sampled_feature.shape)
+            projected_blur_feature.shape)
+        print("new_sampled_features", new_sampled_features.shape)
         sampled_map_4d = sampled_map.reshape(sampled_feature.shape[0], sampled_feature.shape[2],
                                              sampled_feature.shape[3], sampled_feature.shape[2], sampled_feature.shape[3])
 
@@ -589,20 +598,29 @@ class Feature_predictor(nn.Module):
         coords_y = coords_index // fW
 
         coords_xy = torch.stack([coords_x, coords_y], dim=1).float()
+        new_size = (2 * coords_xy.shape[2], 2 * coords_xy.shape[3])
+        coords_xy_3 = 2 * \
+            F.interpolate(coords_xy, size=new_size,
+                          mode='bilinear', align_corners=True)
         coords_xy_3 = self.flow_conv1(coords_xy_3)
+        print("coords_xy_3", coords_xy_3.shape)
         ###############################################################
         # multi-scale feature warping
         ###############################################################
-        sharp_feature_scale[2] = warp(sharp_feature_scale[2], -1*coords_xy)
+        print("sharp_feature_scale2", sharp_feature_scale[2].shape)
+        sharp_feature_scale[2] = warp(sharp_feature_scale[2], -1*coords_xy_3)
+        print("sharp_feature_scale2", sharp_feature_scale[2].shape)
 
-        new_size = (2 * coords_xy.shape[2], 2 * coords_xy.shape[3])
+        new_size = (2 * coords_xy_3.shape[2], 2 * coords_xy_3.shape[3])
         coords_xy_2 = 2 * \
-            F.interpolate(coords_xy, size=new_size,
+            F.interpolate(coords_xy_3, size=new_size,
                           mode='bilinear', align_corners=True)
         # # print(sharp_init_feature_scale[1].max())
         coords_xy_2 = self.flow_conv2(coords_xy_2)
+        print("coords_xy_2", coords_xy_2.shape)
+        print("sharp_feature_scale1", sharp_feature_scale[1].shape)
         sharp_feature_scale[1] = warp(sharp_feature_scale[1], -1*coords_xy_2)
-
+        print("sharp_feature_scale1", sharp_feature_scale[1].shape)
         new_size = (2 * coords_xy_2.shape[2], 2 * coords_xy_2.shape[3])
         coords_xy_3 = 2 * \
             F.interpolate(coords_xy_2, size=new_size,
@@ -612,9 +630,10 @@ class Feature_predictor(nn.Module):
         sharp_feature_scale[0] = warp(sharp_feature_scale[0], -1*coords_xy_3)
 
         final_features = new_sampled_features*0.4 + \
-            sharp_feature_scale[2]*0.2 + new_features_predicted*0.4
-
-        return blur_attn_features, blur_attn_features, final_features, sharp_feature_scale
+            sharp_feature*0.2 + new_features_predicted*0.4
+        print(final_features.device, sharp_feature_scale[0].device,
+              blur_attn_features.device, final_transformation_map.device)
+        return blur_attn_features, final_transformation_map, final_features, sharp_feature_scale
 
 
 # class Feature_sampler(nn.Module):
