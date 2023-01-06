@@ -156,7 +156,6 @@ class Pyramidal_feature_encoder(nn.Module):
             output = f4
         return output, [f1, f2, f3]
 
-
 # multiheaded self attention module over the feature maps
 
 class Feature_extractor(nn.Module):
@@ -423,42 +422,51 @@ class Feature_predictor(nn.Module):
 
     def forward(self, blur_feature, blur_feature_scale, sharp_feature, sharp_feature_scale, time_encoding):
         N, fC, fH, fW = blur_feature.shape
+        print("blur_feature", blur_feature.shape)
         #############################################################
         # blur attention encoding
         #############################################################
         features = posemb_sincos_2d(blur_feature) + blur_feature
+        print("features", features.shape)
 
         projected_blur_feature = features.permute(1, 0, 2, 3)
+        print("projected_blur_feature", projected_blur_feature.shape)
         projected_blur_feature = projected_blur_feature.reshape(
             projected_blur_feature.shape[0], -1)
+        print("projected_blur_feature", projected_blur_feature.shape)
         projected_blur_feature = projected_blur_feature.permute(1, 0)
-
+        print("projected_blur_feature", projected_blur_feature.shape)
         projected_blur_feature = self.blur_feature_projector(
             projected_blur_feature)
+        print("projected_blur_feature", projected_blur_feature.shape)
         projected_blur_feature = projected_blur_feature.permute(1, 0)
+        print("projected_blur_feature", projected_blur_feature.shape)
         projected_blur_feature = projected_blur_feature.reshape(
             projected_blur_feature.shape[0], blur_feature.shape[0], blur_feature.shape[2], blur_feature.shape[3])
+        print("projected_blur_feature", projected_blur_feature.shape)
         projected_blur_feature = projected_blur_feature.permute(1, 0, 2, 3)
+        print("projected_blur_feature", projected_blur_feature.shape)
 
         input_features1 = projected_blur_feature.reshape(
             projected_blur_feature.shape[0], projected_blur_feature.shape[1], -1)
-
+        print("input_features1", input_features1.shape)
         input_features1 = input_features1.permute(2, 0, 1)
-
+        print("input_features1", input_features1.shape)
         blur_attn_features, blur_attn_map = self.blur_self_attention(
             input_features1, input_features1, input_features1)
 
         blur_attn_features = blur_attn_features.permute(1, 2, 0)
         blur_attn_features = blur_attn_features.reshape(
             projected_blur_feature.shape)
+        print("blur_attn_features", blur_attn_features.shape)
         blur_attn_map = blur_attn_map.reshape(projected_blur_feature.shape[0], projected_blur_feature.shape[2],
                                               projected_blur_feature.shape[3], projected_blur_feature.shape[2], projected_blur_feature.shape[3])
-
+        print("blur_attn_features", blur_attn_features.shape)
         y = blur_attn_map.permute(0, 3, 4, 1, 2).reshape(
             blur_attn_map.shape[0], blur_attn_map.shape[3], blur_attn_map.shape[4], -1).max(dim=3)[0]
 
         range_variation = (1/y)*(1/(2*3.1415))*(1/blur_attn_map.shape[3])
-
+        print("range_variation", range_variation.shape)
         # _____________________________________________________________
         # output: blur_attn_features, blur_attn_map, range_variation
         # _____________________________________________________________
@@ -468,41 +476,49 @@ class Feature_predictor(nn.Module):
         #############################################################
 
         latent_features = posemb_sincos_2d(sharp_feature) + sharp_feature
+        print("latent_features", latent_features.shape)
         latent_features = torch.cat(
             [latent_features, blur_attn_features, time_encoding, range_variation], dim=1)
-
+        print("latent_features", latent_features.shape)
         projected_latent_features = latent_features.permute(1, 0, 2, 3)
+        print("projected_latent_features", projected_latent_features.shape)
         projected_latent_features = projected_latent_features.reshape(
             projected_latent_features.shape[0], -1)
+        print("projected_latent_features", projected_latent_features.shape)
         projected_latent_features = projected_latent_features.permute(1, 0)
-
+        print("projected_latent_features", projected_latent_features.shape)
         projected_latent_features = self.sharp_feature_projector(
             projected_latent_features)
+        print("projected_latent_features", projected_latent_features.shape)
         projected_latent_features = projected_latent_features.permute(1, 0)
+        print("projected_latent_features", projected_latent_features.shape)
         projected_latent_features = projected_latent_features.reshape(
             projected_latent_features.shape[0], latent_features.shape[0], latent_features.shape[2], latent_features.shape[3])
+        print("projected_latent_features", projected_latent_features.shape)
         projected_latent_features = projected_latent_features.permute(
             1, 0, 2, 3)  # n,D,h,w
-
+        print("projected_latent_features", projected_latent_features.shape)
         input_features2 = projected_latent_features.reshape(
             projected_latent_features.shape[0], projected_latent_features.shape[1], -1)
-
+        print("input_features2", input_features2.shape)
         input_features2 = input_features2.permute(2, 0, 1)  # h*w, n, D
-
+        print("input_features2", input_features2.shape)
         v1 = sharp_feature.reshape(
             sharp_feature.shape[0], sharp_feature.shape[1], -1)
         v1 = v1.permute(2, 0, 1)
-
+        print("v1", v1.shape)
         new_features_predicted, predictor_map = self.sharp_self_attention(
             input_features2, input_features2, sharp_feature)
-
+        print("new_features_predicted", new_features_predicted.shape)
         new_features_predicted = new_features_predicted.permute(
             1, 2, 0)  # n, D, h*w
+        print("new_features_predicted", new_features_predicted.shape)
         new_features_predicted = new_features_predicted.reshape(
             latent_features.shape)
+        print("new_features_predicted", new_features_predicted.shape)
         predictor_map_4d = predictor_map.reshape(latent_features.shape[0], latent_features.shape[2],
                                                  latent_features.shape[3], latent_features.shape[2], latent_features.shape[3])
-
+        print("predictor_map_4d", predictor_map_4d.shape)
         # _____________________________________________________________
         # output:  new_features, predictor_map
         # _____________________________________________________________
@@ -514,30 +530,26 @@ class Feature_predictor(nn.Module):
         key = key.reshape(
             key.shape[0], key.shape[1], -1)
         key = key.permute(2, 0, 1)
-
+        print("key", key.shape)
         sampled_feature = torch.cat([posemb_sincos_2d(
             blur_attn_features) + blur_attn_features, time_encoding, range_variation], dim=1)
-
+        print("sampled_feature", sampled_feature.shape)
         projected_sampled_image_feature = sampled_feature.permute(1, 0, 2, 3)
         projected_sampled_image_feature = projected_sampled_image_feature.reshape(
             projected_sampled_image_feature.shape[0], -1)
         projected_sampled_image_feature = projected_sampled_image_feature.permute(
             1, 0)
-
-        projected_sampled_image_feature = self.sampler_feature_projector(
-            projected_sampled_image_feature)
-        projected_sampled_image_feature = projected_sampled_image_feature.permute(
-            1, 0)
+        print("projected_sampled_image_feature", projected_sampled_image_feature.shape)
+        projected_sampled_image_feature = self.sampler_feature_projector(projected_sampled_image_feature)
+        projected_sampled_image_feature = projected_sampled_image_feature.permute(1, 0)
         projected_sampled_image_feature = projected_sampled_image_feature.reshape(
             projected_sampled_image_feature.shape[0], sampled_feature.shape[0], sampled_feature.shape[2], sampled_feature.shape[3])
-        projected_sampled_image_feature = projected_sampled_image_feature.permute(
-            1, 0, 2, 3)  # n,D,h,w
-
-        input_features3 = projected_sampled_image_feature.reshape(
-            projected_sampled_image_feature.shape[0], projected_sampled_image_feature.shape[1], -1)
+        projected_sampled_image_feature = projected_sampled_image_feature.permute(1, 0, 2, 3)  # n,D,h,w
+        print("projected_sampled_image_feature", projected_sampled_image_feature.shape)
+        input_features3 = projected_sampled_image_feature.reshape(projected_sampled_image_feature.shape[0], projected_sampled_image_feature.shape[1], -1)
 
         input_features3 = input_features3.permute(2, 0, 1)  # h*w, n, D
-
+        print("input_features3", input_features3.shape)
         new_sampled_features, sampled_map = self.cross_attention(
             input_features3, key, v1)
 
@@ -552,7 +564,7 @@ class Feature_predictor(nn.Module):
         # belief propagation
         ###############################################################
         final_transformation_map = predictor_map*sampled_map
-
+        print("final_transformation_map", final_transformation_map.shape)
         ###############################################################
         # flow computation
         ###############################################################
