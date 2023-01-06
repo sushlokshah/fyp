@@ -150,8 +150,8 @@ class Blur_decoder(nn.Module):
         #################################################################
         sharp_feature, sharp_feature_scale, current_blur_features, current_blur_feature_scale = self.sharp_encoder(
             past_blur_image, current_blur_image)
-        print(sharp_feature.device, sharp_feature_scale[0].device,
-              current_blur_features.device, current_blur_feature_scale[0].device)
+        # print(sharp_feature.device, sharp_feature_scale[0].device,
+            #   current_blur_features.device, current_blur_feature_scale[0].device)
         self.reconstruction_loss = 0
         self.psnr_metric = 0
         self.ssim_metric = 0
@@ -167,7 +167,7 @@ class Blur_decoder(nn.Module):
                 0, i, gen_length, self.batch_size).to(sharp_feature.device)
             time_info = time_info.repeat(
                 sharp_feature.shape[2], sharp_feature.shape[3], 1, 1).permute(2, 3, 0, 1)
-            print(time_info.device)
+            # print(time_info.device)
             ######################################################################
             # feature forcasting
             ######################################################################
@@ -179,7 +179,7 @@ class Blur_decoder(nn.Module):
             ######################################################################
             current_sharp_image = self.decoder(
                 final_features, sharp_feature_scale)
-            print(current_sharp_image.device)
+            # print(current_sharp_image.device)
             ######################################################################
             # losses and metric
             ######################################################################
@@ -203,9 +203,9 @@ class Blur_decoder(nn.Module):
         #################################################################
         sharp_feature, sharp_feature_scale, current_blur_features, current_blur_feature_scale = self.sharp_encoder(
             past_blur_image, current_blur_image)
-        self.reconstruction_loss = torch.tensor(0)
-        self.psnr_metric = torch.tensor(0)
-        self.ssim_metric = torch.tensor(0)
+        self.reconstruction_loss = 0
+        self.psnr_metric = 0
+        self.ssim_metric = 0
         generated_sequence = {}
         gt_sequence = {}
         gt_sequence[gen_index] = sharp_images[gen_index].detach().cpu()
@@ -218,7 +218,7 @@ class Blur_decoder(nn.Module):
         ######################################################################
         # feature forcasting
         ######################################################################
-        blur_attn_features, blur_attn_features, final_features, sharp_feature_scale = self.feature_predictor(
+        blur_attn_features, final_transformation_map, final_features, sharp_feature_scale = self.feature_predictor(
             current_blur_features, current_blur_feature_scale, sharp_feature, sharp_feature_scale, time_info)
 
         ######################################################################
