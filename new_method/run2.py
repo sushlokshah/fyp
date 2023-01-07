@@ -110,6 +110,9 @@ torch.autograd.set_detect_anomaly(True)
 
 def train(model, args):
     model.train()
+    psnr = PSNR()
+    ssim = SSIM()
+
     # load data
     print("Augmentions used...")
     transform = get_transform(args, 'train')
@@ -131,14 +134,17 @@ def train(model, args):
             past_img = data['past'].cuda()
             blur_img = data['blur'].cuda()
             gen_seq = data['gen_seq']
+            # print(blur_img.min(), blur_img.max())
             # # for varing length generation
             # step_size = np.random.randint(3, 6)
-
             # gen_seq = gen_seq[::step_size]
             # gen_seq = gen_seq.cuda()
             if args.mode == "train_image_deblurring":
                 gen_seq = gen_seq.permute(1, 0, 2, 3, 4)
                 gen_seq = gen_seq[0].cuda()
+                if i % args.display_step_freq == 0:
+                    print(psnr(blur_img, gen_seq).item(),
+                          ssim(blur_img, gen_seq).item())
                 generated_seq, reconstruction_loss, metric = model(
                     gen_seq, past_img, blur_img, args.mode)
             elif args.mode == "train_forcaster_sequence":
@@ -220,8 +226,8 @@ def train(model, args):
                            '_epoch_' + str(epoch) + '_step_' + str(i) + '.pth')
 
             # test model
-            if i % args.eval_step_freq == 1:
-                test(model, args, writer, epoch*len(train_loader) + i)
+            # if i % args.eval_step_freq == 1:
+            #     test(model, args, writer, epoch*len(train_loader) + i)
 
     model.save(args.checkpoint_dir + args.name + "final.pth")
     writer.close()

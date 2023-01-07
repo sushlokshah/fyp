@@ -6,6 +6,7 @@ papers/
 new_method/checkpoints/
 new_method/runs/
 new_method/visualization/
+new_method/experiments/
 checkpoints/
 old_approaches/DeMFI/Datasets
 old_approaches/DeMFI/checkpoint_dir

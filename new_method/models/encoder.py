@@ -250,8 +250,8 @@ class Deblurring_net_encoder(nn.Module):
         # # print("level 3 done")
         last_scale_feature = 0.5*past_features_3 + 0.5*current_features_3
 
-        features = [current_blur_feature_scale[0], 0.5*(past_features_1 +
-                                                        current_features_1), 0.5*(past_features_2 + current_features_2)]
+        features = [current_blur_feature_scale[0], 0.5*past_features_1 +
+                    0.5*current_features_1, 0.5*past_features_2 + 0.5*current_features_2]
         return last_scale_feature, features, current_blur_features, current_blur_feature_scale
 
 
@@ -542,7 +542,7 @@ class Feature_predictor(nn.Module):
         projected_sampled_image_feature = projected_sampled_image_feature.permute(
             1, 0)
         # print("projected_sampled_image_feature",
-            #   projected_sampled_image_feature.shape)
+        #   projected_sampled_image_feature.shape)
         projected_sampled_image_feature = self.sampler_feature_projector(
             projected_sampled_image_feature)
         projected_sampled_image_feature = projected_sampled_image_feature.permute(
@@ -552,7 +552,7 @@ class Feature_predictor(nn.Module):
         projected_sampled_image_feature = projected_sampled_image_feature.permute(
             1, 0, 2, 3)  # n,D,h,w
         # print("projected_sampled_image_feature",
-            #   projected_sampled_image_feature.shape)
+        #   projected_sampled_image_feature.shape)
         input_features3 = projected_sampled_image_feature.reshape(
             projected_sampled_image_feature.shape[0], projected_sampled_image_feature.shape[1], -1)
 
@@ -632,7 +632,7 @@ class Feature_predictor(nn.Module):
         final_features = new_sampled_features*0.4 + \
             sharp_feature*0.2 + new_features_predicted*0.4
         # print(final_features.device, sharp_feature_scale[0].device,
-            #   blur_attn_features.device, final_transformation_map.device)
+        #   blur_attn_features.device, final_transformation_map.device)
         return blur_attn_features, final_transformation_map, final_features, sharp_feature_scale
 
 

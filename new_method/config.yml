@@ -35,7 +35,8 @@ test_augmentations:
   resize: [256, 256]
 
 # if resume
-weights: C:\Users\Machine Learning GPU\Desktop\fyp\fyp\new_method\visualization\train\train_image_deblurring_best_run1\deblurring_05_01_2023_14_33_15_epoch_21_step_1.pth
+weights:
+#C:\Users\Machine Learning GPU\Desktop\fyp\fyp\new_method\visualization\train\train_image_deblurring_best_run1\deblurring_05_01_2023_14_33_15_epoch_21_step_1.pth
 #C:\Users\Machine Learning GPU\Desktop\fyp\fyp\new_method\visualization\test_sub_no_single_image\deblurring_epoch_13_step_0.pth
 #C:\Users\Machine Learning GPU\Desktop\fyp\fyp\new_method\checkpoints\deblurring_epoch_12_step_0.pth
 
@@ -97,11 +98,11 @@ hyperparameters:
 
 # hyperparameters for training
 training_parameters:
-  lr: 0.0005
-  batch_size: 40
+  lr: 0.001
+  batch_size: 32
   num_epochs: 100
   prob_for_frame_drop: 0
-  dropout: 0
+  dropout: 0.1
 
 # hyperparameters for testing
 testing_parameters:

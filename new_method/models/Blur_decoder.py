@@ -131,7 +131,7 @@ class Blur_decoder(nn.Module):
         # decoder with skip connections
         #################################################################
         current_sharp_image = self.decoder(sharp_feature, sharp_feature_scale)
-
+        # print(current_sharp_image.max(), current_sharp_image.min())
         ##################################################################
         # losses and metric
         ##################################################################
@@ -151,7 +151,7 @@ class Blur_decoder(nn.Module):
         sharp_feature, sharp_feature_scale, current_blur_features, current_blur_feature_scale = self.sharp_encoder(
             past_blur_image, current_blur_image)
         # print(sharp_feature.device, sharp_feature_scale[0].device,
-            #   current_blur_features.device, current_blur_feature_scale[0].device)
+        #   current_blur_features.device, current_blur_feature_scale[0].device)
         self.reconstruction_loss = 0
         self.psnr_metric = 0
         self.ssim_metric = 0
@@ -315,4 +315,5 @@ class Blur_decoder(nn.Module):
         states = torch.load(fname)
         self.sharp_encoder.load_state_dict(states['sharp_encoder'])
         self.decoder.load_state_dict(states['decoder'])
-        self.feature_predictor.load_state_dict(states['feature_predictor'])
+        if 'feature_predictor' in states:
+            self.feature_predictor.load_state_dict(states['feature_predictor'])

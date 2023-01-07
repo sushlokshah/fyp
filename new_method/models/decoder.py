@@ -129,19 +129,19 @@ class Refinement_Decoder(nn.Module):
         f1 = F.relu(self.norm1(self.dconv1(x)))
         # print("f1", f1.shape)
         # print("cache[2]", cache[2].shape)
-        f11 = F.relu(self.norm1(self.deconv_level2((f1 + cache[2])/2)))
+        f11 = F.relu(self.norm1(self.deconv_level2(f1 + cache[2])))
         # print("f11", f11.shape)
         # h/2*w/2*outputput_channels//4
         f2 = F.relu(self.norm2(self.dconv2(f11)))
         # print("f2", f2.shape)
         # print("cache[1]", cache[1].shape)
-        f22 = F.relu(self.norm2(self.deconv_level1((f2 + cache[1])/2)))
+        f22 = F.relu(self.norm2(self.deconv_level1(f2 + cache[1])))
         # # print(f2)
         # print("f22", f22.shape)
         f3 = F.relu(self.norm3(self.dconv3(f22)))  # h*w*outputput_channels
         # print("f3", f3.shape)
         # print("cache[0]", cache[0].shape)
-        f33 = torch.tanh(self.norm3(self.deconv_level0(f3))) + cache[0]
+        f33 = torch.tanh(self.norm3(self.deconv_level0(f3 + cache[0])))
         # # print(f3)
         # print("f33", f33.shape)
         return f33
