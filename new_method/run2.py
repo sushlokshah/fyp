@@ -189,7 +189,7 @@ def train(model, args):
             # update visualization
             if i % args.display_step_freq == 0:
                 print("loss:", loss)
-            
+
             if i % args.visualize_step_freq == 1:
                 if args.visualize:
                     if not os.path.exists(os.path.join(args.visualization_path, "train")):
@@ -207,11 +207,6 @@ def train(model, args):
                     if not os.path.exists(os.path.join(args.visualization_path, "train", args.mode, "blur")):
                         os.makedirs(os.path.join(
                             args.visualization_path, "train", args.mode, "blur"))
-
-                    vis_path = os.path.join(
-                        args.visualization_path, "train", args.mode, "seq")
-                    visualize(generated_seq[1], generated_seq[0], path=vis_path, name="epoch_{}_iter_{}_loss_{}_psnr_{}_ssim_{}.png".format(
-                        epoch, i, reconstruction_loss, metric[0], metric[1]))
                     blur_path = os.path.join(
                         args.visualization_path, "train", args.mode, "blur")
                     invTrans = transforms.Compose([transforms.Normalize(mean=[0., 0., 0.],
@@ -221,6 +216,11 @@ def train(model, args):
                                                    ])
                     blur_img_cpu = invTrans(
                         blur_img[0].squeeze(0).cpu().detach())
+                    vis_path = os.path.join(
+                        args.visualization_path, "train", args.mode, "seq")
+                    visualize(generated_seq[1], generated_seq[0], prior={0: blur_img.detach().cpu()}, path=vis_path, name="epoch_{}_iter_{}_loss_{}_psnr_{}_ssim_{}.png".format(
+                        epoch, i, reconstruction_loss, metric[0], metric[1]))
+
                     torch_utils.save_image(blur_img_cpu, os.path.join(blur_path, "epoch_{}_iter_{}_loss_{}_psnr_{}_ssim_{}.png".format(
                         epoch, i, reconstruction_loss, metric[0], metric[1])))
 

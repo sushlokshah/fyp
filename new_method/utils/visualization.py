@@ -19,17 +19,17 @@ import torchvision.utils as torch_utils
 import torchvision.transforms as transforms
 
 
-def visualize(posterior, gt, prior=None, path="output", name = "output.png"):
+def visualize(posterior, gt, prior=None, path="output", name="output.png"):
     post_seq = []
     prior_seq = []
     gt_seq = []
 
-    invTrans = transforms.Compose([ transforms.Normalize(mean = [ 0., 0., 0. ],
-                                                     std = [ 1/0.5, 1/0.5, 1/0.5 ]),
-                                transforms.Normalize(mean = [ -0.5, -0.5, -0.5 ],
-                                                     std = [ 1., 1., 1. ]),
-                               ])
-    
+    invTrans = transforms.Compose([transforms.Normalize(mean=[0., 0., 0.],
+                                                        std=[1/0.5, 1/0.5, 1/0.5]),
+                                   transforms.Normalize(mean=[-0.5, -0.5, -0.5],
+                                                        std=[1., 1., 1.]),
+                                   ])
+
     for keys in posterior.keys():
         post_seq.append(invTrans(posterior[keys][0]))
         if prior != None:
@@ -45,8 +45,9 @@ def visualize(posterior, gt, prior=None, path="output", name = "output.png"):
             prior_seq, nrow=len(prior), padding=2, normalize=False, range=None, scale_each=False, pad_value=255)
         # stack the image seq vertically
         # output = tor
-        
-        output = torch_utils.make_grid([gt_seq, post_seq, prior_seq], nrow=3,
+        # https://prod.liveshare.vsengsaas.visualstudio.com/join?DA78B5BD121EB494F26206FABE5254D29CB3
+        # print(gt_seq.device, prior_seq.device, post_seq.device)
+        output = torch_utils.make_grid([gt_seq.to(prior_seq.device), prior_seq, post_seq.to(prior_seq.device)], nrow=3,
                                        padding=2, normalize=False, range=None, scale_each=False, pad_value=255)
 
     else:

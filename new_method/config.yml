@@ -20,7 +20,7 @@ data_root_train: C:\Users\Machine Learning GPU\Desktop\GOPRO_Large_all(2)
 seq_len_train: [4, 16]
 
 training_augmentations:
-  resize: [256, 256]
+  resize: [720, 1280]
   # color_jitter: [0.4, 0.4, 0.4, 0.1]
   # random_flip: true
   # random_rotation: 10
@@ -32,7 +32,7 @@ data_root_test: C:\Users\Machine Learning GPU\Desktop\GOPRO_Large_all(2)
 seq_len_test: [4, 16]
 
 test_augmentations:
-  resize: [256, 256]
+  # resize: [256, 256]
 
 # if resume
 weights:
@@ -55,7 +55,7 @@ visualization_path: C:\Users\Machine Learning GPU\Desktop\fyp\fyp\new_method\vis
 #optimizer and optimizer specific parameters
 optimizer:
   optimizer_name: AdamW
-  weight_decay: 0.001
+  weight_decay: 0.01
   eps: 1e-08
 
 #learning rate scheduler and scheduler specific parameters
@@ -98,11 +98,11 @@ hyperparameters:
 
 # hyperparameters for training
 training_parameters:
-  lr: 0.001
-  batch_size: 32
+  lr: 0.0005
+  batch_size: 4
   num_epochs: 100
   prob_for_frame_drop: 0
-  dropout: 0.1
+  dropout: 0
 
 # hyperparameters for testing
 testing_parameters:

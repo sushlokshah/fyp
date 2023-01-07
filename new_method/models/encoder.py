@@ -250,7 +250,7 @@ class Deblurring_net_encoder(nn.Module):
         # # print("level 3 done")
         last_scale_feature = 0.5*past_features_3 + 0.5*current_features_3
 
-        features = [current_blur_feature_scale[0], 0.5*past_features_1 +
+        features = [0.5*current_blur_feature_scale[0] + 0.5*last_blur_feature_scale[0], 0.5*past_features_1 +
                     0.5*current_features_1, 0.5*past_features_2 + 0.5*current_features_2]
         return last_scale_feature, features, current_blur_features, current_blur_feature_scale
 
