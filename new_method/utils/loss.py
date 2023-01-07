@@ -108,6 +108,20 @@ def ssim(img1, img2, window_size = 11, size_average = True):
     
     return _ssim(img1, img2, window, window_size, channel, size_average)
 
+def image_gradient(img):
+    # sobel filter
+    sobel_x = torch.Tensor([[1, 0, -1], [2, 0, -2], [1, 0, -1]]).view(1, 1, 3, 3)
+    sobel_y = torch.Tensor([[1, 2, 1], [0, 0, 0], [-1, -2, -1]]).view(1, 1, 3, 3)
+    
+    # convert image to grayscale
+    gray = img.mean(dim=1, keepdim=True)  
+    
+    grad_x = F.conv2d(gray, sobel_x, padding=1)
+    grad_y = F.conv2d(gray, sobel_y, padding=1)
+    
+    return grad_x, grad_y
+    
+        
 
 
 if __name__ == "__main__":
