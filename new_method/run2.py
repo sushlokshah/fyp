@@ -187,6 +187,9 @@ def train(model, args):
                           epoch*len(train_loader) + i, 'train', args.mode)
 
             # update visualization
+            if i % args.display_step_freq == 0:
+                print("loss:", loss)
+            
             if i % args.visualize_step_freq == 1:
                 if args.visualize:
                     if not os.path.exists(os.path.join(args.visualization_path, "train")):
