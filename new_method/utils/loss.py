@@ -138,6 +138,16 @@ def image_gradient(img):
     return grad_x, grad_y
 
 
+def image_laplacian(img):
+    laplacian = torch.Tensor(
+        [[-1, -1, -1], [-1, 9, -1], [-1, -1, -1]]).view(1, 1, 3, 3).to(img.device)
+
+    # convert image to grayscale
+    gray = img.mean(dim=1, keepdim=True)
+    output = F.conv2d(gray, laplacian, padding=1)
+    return output
+
+
 if __name__ == "__main__":
     x1 = Variable(torch.randn(1, 3, 256, 256), requires_grad=True)
     # x2 = Variable(torch.randn(1, 3, 256, 256), requires_grad=True)

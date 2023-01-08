@@ -11,7 +11,7 @@ import os
 from models.encoder import Deblurring_net_encoder, Feature_forcaster, Feature_extractor, Feature_predictor
 from models.decoder import Refinement_Decoder
 from models.positional_encoding import Positional_encoding
-from utils.loss import KLCriterion, PSNR, SSIM, SmoothMSE, image_gradient
+from utils.loss import KLCriterion, PSNR, SSIM, SmoothMSE, image_gradient, image_laplacian
 
 
 class Blur_decoder(nn.Module):
@@ -104,6 +104,7 @@ class Blur_decoder(nn.Module):
         self.mse_criterion = nn.L1Loss()
         self.grad_x_mse_criterion = nn.L1Loss()
         self.grad_y_mse_criterion = nn.L1Loss()
+        self.laplacian_mse_criterion = nn.MSELoss()
         self.ssim_criterion = SSIM()
         self.psnr_criterion = PSNR()
 
@@ -137,10 +138,15 @@ class Blur_decoder(nn.Module):
         ##################################################################
         # losses and metric
         ##################################################################
-        grad_x , grad_y = image_gradient(current_sharp_image)
+        grad_x, grad_y = image_gradient(current_sharp_image)
         gt_grad_x, gt_grad_y = image_gradient(sharp_image)
         self.grad_x_loss = self.grad_x_mse_criterion(grad_x, gt_grad_x)
         self.grad_y_loss = self.grad_y_mse_criterion(grad_y, gt_grad_y)
+
+        laplacian = image_laplacian(current_sharp_image)
+        gt_laplacian = image_laplacian(sharp_image)
+        self.laplacian_loss = self.laplacian_mse_criterion(
+            laplacian, gt_laplacian)
         self.deblurring_reconstruction_loss = self.mse_criterion(
             current_sharp_image, sharp_image)
         self.deblurring_ssim = self.ssim_criterion(
@@ -191,7 +197,7 @@ class Blur_decoder(nn.Module):
             ######################################################################
             # losses and metric
             ######################################################################
-            grad_x , grad_y = image_gradient(current_sharp_image)
+            grad_x, grad_y = image_gradient(current_sharp_image)
             gt_grad_x, gt_grad_y = image_gradient(sharp_images[i])
             self.grad_x_loss += self.grad_x_mse_criterion(grad_x, gt_grad_x)
             self.grad_y_loss += self.grad_y_mse_criterion(grad_y, gt_grad_y)
@@ -245,7 +251,7 @@ class Blur_decoder(nn.Module):
         ######################################################################
         # losses and metric
         ######################################################################
-        grad_x , grad_y = image_gradient(current_sharp_image)
+        grad_x, grad_y = image_gradient(current_sharp_image)
         gt_grad_x, gt_grad_y = image_gradient(sharp_images[gen_index])
         self.grad_x_loss += self.grad_x_mse_criterion(grad_x, gt_grad_x)
         self.grad_y_loss += self.grad_y_mse_criterion(grad_y, gt_grad_y)
@@ -265,9 +271,10 @@ class Blur_decoder(nn.Module):
         self.feature_predictor_optimizer.zero_grad()
         # self.refinement_max_scale_optimizer.zero_grad()
 
-        loss = 0.4*self.deblurring_reconstruction_loss + 0.4 * \
-            torch.exp(-0.05*self.deblurring_psnr) + 0.2 * \
-            torch.abs(1-self.deblurring_ssim) + self.grad_x_loss + self.grad_y_loss
+        loss = self.deblurring_reconstruction_loss + 1 * \
+            torch.exp(-0.05*self.deblurring_psnr) + 1 * \
+            torch.abs(1-self.deblurring_ssim) + \
+            self.grad_x_loss + self.grad_y_loss + self.laplacian_loss
         loss.backward(retain_graph=True)
 
         self.sharp_encoder_optimizer.step()
