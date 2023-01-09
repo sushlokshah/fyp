@@ -150,7 +150,7 @@ class Blur_decoder(nn.Module):
 
         grad_x = torch.where(grad_x > threshold, 0.99*torch.ones_like(
             grad_x), grad_x)
-        grad_y = torch.where(gt_grad_y > threshold, 0.99*torch.ones_like(
+        grad_y = torch.where(grad_y > threshold, 0.99*torch.ones_like(
             grad_y), grad_y)
         
         gt_grad_x = gt_grad_x.squeeze(1).view(current_sharp_image.size(0), -1)
