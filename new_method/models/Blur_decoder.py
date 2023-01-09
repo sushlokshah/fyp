@@ -144,13 +144,13 @@ class Blur_decoder(nn.Module):
         gt_grad_x, gt_grad_y = image_gradient(sharp_image)
 
         shape_out = grad_x.shape
-        
+        threshold = 0.1
         grad_x = grad_x.squeeze(1).view(current_sharp_image.size(0), -1)
         grad_y = grad_y.squeeze(1).view(current_sharp_image.size(0), -1)
 
-        grad_x = torch.where(grad_x > 0.15, 0.99*torch.ones_like(
+        grad_x = torch.where(grad_x > threshold, 0.99*torch.ones_like(
             grad_x), grad_x)
-        grad_y = torch.where(gt_grad_y > 0.15, 0.99*torch.ones_like(
+        grad_y = torch.where(gt_grad_y > threshold, 0.99*torch.ones_like(
             grad_y), grad_y)
         
         gt_grad_x = gt_grad_x.squeeze(1).view(current_sharp_image.size(0), -1)
@@ -158,9 +158,9 @@ class Blur_decoder(nn.Module):
 
         
         # apply thresholding over gradients gt
-        gt_grad_x = torch.where(gt_grad_x > 0.15, torch.ones_like(
+        gt_grad_x = torch.where(gt_grad_x > threshold, torch.ones_like(
             gt_grad_x), torch.zeros_like(gt_grad_x))
-        gt_grad_y = torch.where(gt_grad_y > 0.15, torch.ones_like(
+        gt_grad_y = torch.where(gt_grad_y > threshold, torch.ones_like(
             gt_grad_y), torch.zeros_like(gt_grad_y))
         self.grad_x_loss = self.grad_x_mse_criterion(grad_x, gt_grad_x)
         self.grad_y_loss = self.grad_y_mse_criterion(grad_y, gt_grad_y)
@@ -170,13 +170,13 @@ class Blur_decoder(nn.Module):
         
         laplacian = laplacian.squeeze(1).view(current_sharp_image.size(0), -1)
         
-        laplacian = torch.where(laplacian > 0.15, 0.99*torch.ones_like(
+        laplacian = torch.where(laplacian > threshold, 0.99*torch.ones_like(
             laplacian), laplacian)
         
         gt_laplacian = gt_laplacian.squeeze(
             1).view(current_sharp_image.size(0), -1)
 
-        gt_laplacian = torch.where(gt_laplacian > 0.15, torch.ones_like(
+        gt_laplacian = torch.where(gt_laplacian > threshold, torch.ones_like(
             gt_laplacian), torch.zeros_like(gt_laplacian))
 
         edge_map = grad_x + grad_y + laplacian
