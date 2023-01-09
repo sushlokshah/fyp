@@ -152,9 +152,9 @@ class Blur_decoder(nn.Module):
 
         edge_map_gt = gt_grad_x + gt_grad_y
         # apply thresholding over gradients gt
-        gt_grad_x = torch.where(gt_grad_x > 0.1, torch.ones_like(
+        gt_grad_x = torch.where(gt_grad_x > 0.15, torch.ones_like(
             gt_grad_x), torch.zeros_like(gt_grad_x))
-        gt_grad_y = torch.where(gt_grad_y > 0.1, torch.ones_like(
+        gt_grad_y = torch.where(gt_grad_y > 0.15, torch.ones_like(
             gt_grad_y), torch.zeros_like(gt_grad_y))
         self.grad_x_loss = self.grad_x_mse_criterion(grad_x, gt_grad_x)
         self.grad_y_loss = self.grad_y_mse_criterion(grad_y, gt_grad_y)
@@ -166,7 +166,7 @@ class Blur_decoder(nn.Module):
         gt_laplacian = gt_laplacian.squeeze(
             1).view(current_sharp_image.size(0), -1)
 
-        gt_laplacian = torch.where(gt_laplacian > 0.1, torch.ones_like(
+        gt_laplacian = torch.where(gt_laplacian > 0.15, torch.ones_like(
             gt_laplacian), torch.zeros_like(gt_laplacian))
 
         edge_map_gt = gt_grad_x + gt_grad_y + gt_laplacian
