@@ -93,15 +93,18 @@ class Gopro(Dataset):
         
         current_blurry_image = 0
         past_blurry_image = 0    
+        y0 = np.random.randint(0, 720 - 512)
+        x0 = np.random.randint(0, 1280 - 960)
+        
         for i in range(self.max_seq_len//2):
             # read image from path
             current_img_path = self.raw_data[seq][idx + self.max_seq_len//2 + i]
             past_img_path =   self.raw_data[seq][idx + i]
             current_img = Image.open(current_img_path)
             past_img = Image.open(past_img_path)
-            current_blurry_image = current_blurry_image + np.asarray(current_img)/(self.max_seq_len//2)
-            past_blurry_image = past_blurry_image + np.asarray(past_img)/(self.max_seq_len//2)
-            self.image_list.append(self.transform(current_img).unsqueeze(0))
+            current_blurry_image = current_blurry_image + (np.asarray(current_img)[y0:y0+512, x0:x0+960])/(self.max_seq_len//2)
+            past_blurry_image = past_blurry_image + (np.asarray(past_img)[y0:y0+512, x0:x0+960])/(self.max_seq_len//2)
+            self.image_list.append(self.transform(Image.fromarray(np.asarray(current_img)[y0:y0+512, x0:x0+960])).unsqueeze(0))
     
         self.current_blurry_image = Image.fromarray(np.uint8(current_blurry_image))
         self.past  = Image.fromarray(np.uint8(past_blurry_image))

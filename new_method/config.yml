@@ -20,7 +20,7 @@ data_root_train: C:\Users\Machine Learning GPU\Desktop\GOPRO_Large_all(2)
 seq_len_train: [4, 16]
 
 training_augmentations:
-  resize: [544, 960]
+  resize: [512, 960]
   # color_jitter: [0.4, 0.4, 0.4, 0.1]
   # random_flip: true
   # random_rotation: 10
@@ -36,6 +36,7 @@ test_augmentations:
 
 # if resume
 weights:
+# C:\Users\Machine Learning GPU\Desktop\fyp\fyp\new_method\checkpoints\deblurring_08_01_2023_14_06_38_epoch_19_step_1.pth
 # C:\Users\Machine Learning GPU\Desktop\fyp\fyp\new_method\checkpoints\deblurring_08_01_2023_02_36_10_epoch_20_step_1.pth
 #C:\Users\Machine Learning GPU\Desktop\fyp\fyp\new_method\visualization\train\train_image_deblurring_best_run1\deblurring_05_01_2023_14_33_15_epoch_21_step_1.pth
 #C:\Users\Machine Learning GPU\Desktop\fyp\fyp\new_method\visualization\test_sub_no_single_image\deblurring_epoch_13_step_0.pth

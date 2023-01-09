@@ -140,7 +140,7 @@ def image_gradient(img):
 
 def image_laplacian(img):
     laplacian = torch.Tensor(
-        [[-1, -1, -1], [-1, 9, -1], [-1, -1, -1]]).view(1, 1, 3, 3).to(img.device)
+        [[-1, -1, -1], [-1, 8, -1], [-1, -1, -1]]).view(1, 1, 3, 3).to(img.device)
 
     # convert image to grayscale
     gray = img.mean(dim=1, keepdim=True)

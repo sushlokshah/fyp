@@ -120,7 +120,7 @@ class Pyramidal_feature_encoder(nn.Module):
         self.conv_level1 = nn.Conv2d(
             input_channels, input_channels, kernel_size=3, stride=1, padding=1)
         self.conv1 = nn.Conv2d(input_channels, self.output_channels //
-                               4, kernel_size=7, stride=2, padding=3)  # H/2,W/2
+                               4, kernel_size=3, stride=2, padding=1)  # H/2,W/2
         self.conv_level2 = nn.Conv2d(self.output_channels//4, self.output_channels //
                                      4, kernel_size=3, stride=1, padding=1)
         self.conv2 = nn.Conv2d(self.output_channels//4, self.output_channels //
@@ -250,7 +250,7 @@ class Deblurring_net_encoder(nn.Module):
         # # print("level 3 done")
         last_scale_feature = 0.5*past_features_3 + 0.5*current_features_3
 
-        features = [0.5*current_blur_feature_scale[0] + 0.5*last_blur_feature_scale[0], 0.5*past_features_1 +
+        features = [current_blur_feature_scale[0], 0.5*past_features_1 +
                     0.5*current_features_1, 0.5*past_features_2 + 0.5*current_features_2]
         return last_scale_feature, features, current_blur_features, current_blur_feature_scale
 

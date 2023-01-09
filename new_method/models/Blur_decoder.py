@@ -101,9 +101,9 @@ class Blur_decoder(nn.Module):
         ##################################################################
         # losses and metric
         ##################################################################
-        self.mse_criterion = nn.L1Loss()
-        self.grad_x_mse_criterion = nn.L1Loss()
-        self.grad_y_mse_criterion = nn.L1Loss()
+        self.mse_criterion = nn.MSELoss()
+        self.grad_x_mse_criterion = nn.MSELoss()
+        self.grad_y_mse_criterion = nn.MSELoss()
         self.laplacian_mse_criterion = nn.MSELoss()
         self.ssim_criterion = SSIM()
         self.psnr_criterion = PSNR()
@@ -134,6 +134,8 @@ class Blur_decoder(nn.Module):
         # decoder with skip connections
         #################################################################
         current_sharp_image = self.decoder(sharp_feature, sharp_feature_scale)
+        # current_sharp_image = current_sharp_image + \
+        #     image_laplacian(current_blur_image)
         # print(current_sharp_image.max(), current_sharp_image.min())
         ##################################################################
         # losses and metric
@@ -271,10 +273,13 @@ class Blur_decoder(nn.Module):
         self.feature_predictor_optimizer.zero_grad()
         # self.refinement_max_scale_optimizer.zero_grad()
 
-        loss = self.deblurring_reconstruction_loss + 1 * \
-            torch.exp(-0.05*self.deblurring_psnr) + 1 * \
-            torch.abs(1-self.deblurring_ssim) + \
-            self.grad_x_loss + self.grad_y_loss + self.laplacian_loss
+        # loss = self.deblurring_reconstruction_loss + 1 * \
+        #     torch.exp(-0.05*self.deblurring_psnr) + 1 * \
+        #     torch.abs(1-self.deblurring_ssim) + \
+        loss = self.deblurring_reconstruction_loss + \
+            self.laplacian_loss + torch.abs(1-self.deblurring_ssim)
+        # self.grad_x_loss + self.grad_y_loss + \
+
         loss.backward(retain_graph=True)
 
         self.sharp_encoder_optimizer.step()
