@@ -102,9 +102,9 @@ class Blur_decoder(nn.Module):
         # losses and metric
         ##################################################################
         self.mse_criterion = nn.MSELoss()
-        self.grad_x_mse_criterion = nn.MSELoss()
-        self.grad_y_mse_criterion = nn.MSELoss()
-        self.laplacian_mse_criterion = nn.MSELoss()
+        self.grad_x_mse_criterion = nn.BCELoss()
+        self.grad_y_mse_criterion = nn.BCELoss()
+        self.laplacian_mse_criterion = nn.BCELoss()
         self.ssim_criterion = SSIM()
         self.psnr_criterion = PSNR()
 
@@ -142,11 +142,37 @@ class Blur_decoder(nn.Module):
         ##################################################################
         grad_x, grad_y = image_gradient(current_sharp_image)
         gt_grad_x, gt_grad_y = image_gradient(sharp_image)
+
+        edge_map = grad_x + grad_y
+        grad_x = grad_x.squeeze(1).view(current_sharp_image.size(0), -1)
+        grad_y = grad_y.squeeze(1).view(current_sharp_image.size(0), -1)
+
+        gt_grad_x = gt_grad_x.squeeze(1).view(current_sharp_image.size(0), -1)
+        gt_grad_y = gt_grad_y.squeeze(1).view(current_sharp_image.size(0), -1)
+
+        edge_map_gt = gt_grad_x + gt_grad_y
+        # apply thresholding over gradients gt
+        gt_grad_x = torch.where(gt_grad_x > 0.1, torch.ones_like(
+            gt_grad_x), torch.zeros_like(gt_grad_x))
+        gt_grad_y = torch.where(gt_grad_y > 0.1, torch.ones_like(
+            gt_grad_y), torch.zeros_like(gt_grad_y))
         self.grad_x_loss = self.grad_x_mse_criterion(grad_x, gt_grad_x)
         self.grad_y_loss = self.grad_y_mse_criterion(grad_y, gt_grad_y)
 
         laplacian = image_laplacian(current_sharp_image)
         gt_laplacian = image_laplacian(sharp_image)
+        edge_map = edge_map + laplacian
+        laplacian = laplacian.squeeze(1).view(current_sharp_image.size(0), -1)
+        gt_laplacian = gt_laplacian.squeeze(
+            1).view(current_sharp_image.size(0), -1)
+
+        gt_laplacian = torch.where(gt_laplacian > 0.1, torch.ones_like(
+            gt_laplacian), torch.zeros_like(gt_laplacian))
+
+        edge_map_gt = gt_grad_x + gt_grad_y + gt_laplacian
+        # print(edge_map_gt.shape)
+        edge_map_gt = edge_map_gt.unsqueeze(1).reshape(edge_map.shape)
+
         self.laplacian_loss = self.laplacian_mse_criterion(
             laplacian, gt_laplacian)
         self.deblurring_reconstruction_loss = self.mse_criterion(
@@ -156,7 +182,10 @@ class Blur_decoder(nn.Module):
         self.deblurring_psnr = self.psnr_criterion(
             current_sharp_image, sharp_image)
 
-        return [{0: current_sharp_image}, {0: sharp_image}], self.deblurring_reconstruction_loss.item(), [self.deblurring_psnr.item(), self.deblurring_ssim.item()]
+        # make gray scale edge map to 3 channel
+        edge_map = edge_map.repeat(1, 3, 1, 1)
+        edge_map_gt = edge_map_gt.repeat(1, 3, 1, 1)
+        return [{0: current_sharp_image.detach().cpu()}, {0: sharp_image.detach().cpu()}, {0: (edge_map.detach().cpu()/1.5 - 1)}, {0: (edge_map_gt.detach().cpu()/1.5 - 1)}, {0: current_blur_image.detach().cpu()}], self.deblurring_reconstruction_loss.item(), [self.deblurring_psnr.item(), self.deblurring_ssim.item()]
 
     def train_sequence(self, past_blur_image, current_blur_image, sharp_images):
         #################################################################
@@ -277,8 +306,9 @@ class Blur_decoder(nn.Module):
         #     torch.exp(-0.05*self.deblurring_psnr) + 1 * \
         #     torch.abs(1-self.deblurring_ssim) + \
         loss = self.deblurring_reconstruction_loss + \
-            self.laplacian_loss + torch.abs(1-self.deblurring_ssim)
-        # self.grad_x_loss + self.grad_y_loss + \
+            self.laplacian_loss + \
+            torch.abs(1-self.deblurring_ssim) + \
+            self.grad_x_loss + self.grad_y_loss
 
         loss.backward(retain_graph=True)
 

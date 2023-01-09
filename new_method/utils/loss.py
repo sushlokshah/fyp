@@ -38,9 +38,12 @@ class PSNR(nn.Module):
         self.opt = opt
 
     def forward(self, x1, x2):
+        x1 = 0.5*(x1 + 1)*255
+        x2 = 0.5*(x2 + 1)*255
+
         mse = (x1 - x2) ** 2
         mse_mean = mse.mean()
-        return 20 * torch.log10(1 / mse_mean)
+        return 20 * torch.log10(255 / torch.sqrt(mse_mean))
 
 
 def gaussian(window_size, sigma):
@@ -59,6 +62,8 @@ def create_window(window_size, channel):
 
 
 def _ssim(img1, img2, window, window_size, channel, size_average=True):
+    img1 = 255*0.5*(img1 + 1)
+    img2 = 255*0.5*(img2 + 1)
     mu1 = F.conv2d(img1, window, padding=window_size//2, groups=channel)
     mu2 = F.conv2d(img2, window, padding=window_size//2, groups=channel)
 
@@ -73,8 +78,8 @@ def _ssim(img1, img2, window, window_size, channel, size_average=True):
     sigma12 = F.conv2d(img1*img2, window, padding=window_size //
                        2, groups=channel) - mu1_mu2
 
-    C1 = 0.01**2
-    C2 = 0.03**2
+    C1 = (0.01*255)**2
+    C2 = (0.03*255)**2
 
     ssim_map = ((2*mu1_mu2 + C1)*(2*sigma12 + C2)) / \
         ((mu1_sq + mu2_sq + C1)*(sigma1_sq + sigma2_sq + C2))
@@ -85,6 +90,8 @@ def _ssim(img1, img2, window, window_size, channel, size_average=True):
         return ssim_map.mean(1).mean(1).mean(1)
 
 # perpective loss
+
+
 def perspective_loss(x, y):
     x = x.view(x.size(0), -1)
     y = y.view(y.size(0), -1)
@@ -95,11 +102,6 @@ def perspective_loss(x, y):
     x = x / torch.norm(x, dim=1, keepdim=True)
     y = y / torch.norm(y, dim=1, keepdim=True)
     return torch.mean(torch.sum(x * y, dim=1))
-    
-
-
-
-
 
 
 class SSIM(nn.Module):
@@ -152,6 +154,12 @@ def image_gradient(img):
     grad_x = F.conv2d(gray, sobel_x, padding=1)
     grad_y = F.conv2d(gray, sobel_y, padding=1)
 
+    # absolute value
+    grad_x = torch.abs(grad_x)
+    grad_y = torch.abs(grad_y)
+    # normalize values between 0 to 1
+    grad_x = (grad_x - grad_x.min()) / (grad_x.max() - grad_x.min())
+    grad_y = (grad_y - grad_y.min()) / (grad_y.max() - grad_y.min())
     return grad_x, grad_y
 
 
@@ -162,6 +170,8 @@ def image_laplacian(img):
     # convert image to grayscale
     gray = img.mean(dim=1, keepdim=True)
     output = F.conv2d(gray, laplacian, padding=1)
+    output = torch.abs(output)
+    output = (output - output.min()) / (output.max() - output.min())
     return output
 
 

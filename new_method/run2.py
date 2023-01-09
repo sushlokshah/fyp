@@ -218,7 +218,8 @@ def train(model, args):
                         blur_img[0].squeeze(0).cpu().detach())
                     vis_path = os.path.join(
                         args.visualization_path, "train", args.mode, "seq")
-                    visualize(generated_seq[1], generated_seq[0], prior={0: blur_img.detach().cpu()}, path=vis_path, name="epoch_{}_iter_{}_loss_{}_psnr_{}_ssim_{}.png".format(
+                    # generated_seq[1], generated_seq[0], prior={0: blur_img.detach().cpu()}
+                    visualize(generated_seq, path=vis_path, name="epoch_{}_iter_{}_loss_{}_psnr_{}_ssim_{}.png".format(
                         epoch, i, reconstruction_loss, metric[0], metric[1]))
 
                     torch_utils.save_image(blur_img_cpu, os.path.join(blur_path, "epoch_{}_iter_{}_loss_{}_psnr_{}_ssim_{}.png".format(

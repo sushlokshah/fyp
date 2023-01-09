@@ -19,39 +19,41 @@ import torchvision.utils as torch_utils
 import torchvision.transforms as transforms
 
 
-def visualize(posterior, gt, prior=None, path="output", name="output.png"):
-    post_seq = []
-    prior_seq = []
-    gt_seq = []
-
+def visualize(gen_seq, path="output", name="output.png"):
+    output_gen = []
+    output_sharp = []
+    output_gen_edge = []
+    output_edge_gt = []
+    output_blur = []
     invTrans = transforms.Compose([transforms.Normalize(mean=[0., 0., 0.],
                                                         std=[1/0.5, 1/0.5, 1/0.5]),
                                    transforms.Normalize(mean=[-0.5, -0.5, -0.5],
                                                         std=[1., 1., 1.]),
                                    ])
 
-    for keys in posterior.keys():
-        post_seq.append(invTrans(posterior[keys][0]))
-        if prior != None:
-            prior_seq.append(invTrans(prior[keys][0]))
-        gt_seq.append(invTrans(gt[keys][0]))
-    post_seq = torch_utils.make_grid(
-        post_seq, nrow=1, padding=2, normalize=False, range=None, scale_each=False, pad_value=255)
-    gt_seq = torch_utils.make_grid(
-        gt_seq, nrow=1, padding=2, normalize=False, range=None, scale_each=False, pad_value=255)
+    for keys in gen_seq[0].keys():
+        output_gen.append(invTrans(gen_seq[0][keys][0]))
+        output_sharp.append(invTrans(gen_seq[1][keys][0]))
+        output_gen_edge.append(invTrans(gen_seq[2][keys][0]))
+        output_edge_gt.append(invTrans(gen_seq[3][keys][0]))
+        # output_blur.append(invTrans(gen_seq[4][keys][0]))
 
-    if prior != None:
-        prior_seq = torch_utils.make_grid(
-            prior_seq, nrow=len(prior), padding=2, normalize=False, range=None, scale_each=False, pad_value=255)
-        # stack the image seq vertically
-        # output = tor
-        # https://prod.liveshare.vsengsaas.visualstudio.com/join?DA78B5BD121EB494F26206FABE5254D29CB3
-        # print(gt_seq.device, prior_seq.device, post_seq.device)
-        output = torch_utils.make_grid([gt_seq.to(prior_seq.device), prior_seq, post_seq.to(prior_seq.device)], nrow=3,
-                                       padding=2, normalize=False, range=None, scale_each=False, pad_value=255)
+    output_gen = torch_utils.make_grid(
+        output_gen, nrow=1, padding=2, normalize=False, range=None, scale_each=False, pad_value=255)
+    output_sharp = torch_utils.make_grid(
+        output_sharp, nrow=1, padding=2, normalize=False, range=None, scale_each=False, pad_value=255)
 
-    else:
-        output = torch_utils.make_grid(
-            [gt_seq, post_seq], nrow=2, padding=2, normalize=False, range=None, scale_each=False, pad_value=255)
+    output_gen_edge = torch_utils.make_grid(
+        output_gen_edge, nrow=1, padding=2, normalize=False, range=None, scale_each=False, pad_value=255)
+    output_edge_gt = torch_utils.make_grid(
+        output_edge_gt, nrow=1, padding=2, normalize=False, range=None, scale_each=False, pad_value=255)
 
+    output1 = torch_utils.make_grid(
+        [output_gen, output_sharp], nrow=2, padding=2, normalize=False, range=None, scale_each=False, pad_value=255)
+
+    output2 = torch_utils.make_grid(
+        [output_gen_edge, output_edge_gt], nrow=2, padding=2, normalize=False, range=None, scale_each=False, pad_value=255)
+
+    output = torch_utils.make_grid(
+        [output1, output2], nrow=1, padding=2, normalize=False, range=None, scale_each=False, pad_value=255)
     torch_utils.save_image(output, os.path.join(path, name))
