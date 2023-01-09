@@ -143,14 +143,20 @@ class Blur_decoder(nn.Module):
         grad_x, grad_y = image_gradient(current_sharp_image)
         gt_grad_x, gt_grad_y = image_gradient(sharp_image)
 
-        edge_map = grad_x + grad_y
+        shape_out = grad_x.shape
+        
         grad_x = grad_x.squeeze(1).view(current_sharp_image.size(0), -1)
         grad_y = grad_y.squeeze(1).view(current_sharp_image.size(0), -1)
 
+        grad_x = torch.where(grad_x > 0.15, 0.99*torch.ones_like(
+            grad_x), grad_x)
+        grad_y = torch.where(gt_grad_y > 0.15, 0.99*torch.ones_like(
+            grad_y), grad_y)
+        
         gt_grad_x = gt_grad_x.squeeze(1).view(current_sharp_image.size(0), -1)
         gt_grad_y = gt_grad_y.squeeze(1).view(current_sharp_image.size(0), -1)
 
-        edge_map_gt = gt_grad_x + gt_grad_y
+        
         # apply thresholding over gradients gt
         gt_grad_x = torch.where(gt_grad_x > 0.15, torch.ones_like(
             gt_grad_x), torch.zeros_like(gt_grad_x))
@@ -161,17 +167,23 @@ class Blur_decoder(nn.Module):
 
         laplacian = image_laplacian(current_sharp_image)
         gt_laplacian = image_laplacian(sharp_image)
-        edge_map = edge_map + laplacian
+        
         laplacian = laplacian.squeeze(1).view(current_sharp_image.size(0), -1)
+        
+        laplacian = torch.where(laplacian > 0.15, 0.99*torch.ones_like(
+            laplacian), laplacian)
+        
         gt_laplacian = gt_laplacian.squeeze(
             1).view(current_sharp_image.size(0), -1)
 
         gt_laplacian = torch.where(gt_laplacian > 0.15, torch.ones_like(
             gt_laplacian), torch.zeros_like(gt_laplacian))
 
+        edge_map = grad_x + grad_y + laplacian
         edge_map_gt = gt_grad_x + gt_grad_y + gt_laplacian
         # print(edge_map_gt.shape)
-        edge_map_gt = edge_map_gt.unsqueeze(1).reshape(edge_map.shape)
+        edge_map = edge_map.unsqueeze(1).reshape(shape_out)
+        edge_map_gt = edge_map_gt.unsqueeze(1).reshape(shape_out)
 
         self.laplacian_loss = self.laplacian_mse_criterion(
             laplacian, gt_laplacian)
