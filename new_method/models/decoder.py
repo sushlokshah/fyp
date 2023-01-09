@@ -107,41 +107,48 @@ class Refinement_Decoder(nn.Module):
         self.output_channels = output_channels
         self.input_channels = input_channels
 
-        self.norm1 = nn.BatchNorm2d(self.input_channels//2)
-        self.norm2 = nn.BatchNorm2d(self.input_channels//4)
-        self.norm3 = nn.BatchNorm2d(self.output_channels)
+        # self.norm1 = nn.BatchNorm2d(self.input_channels//2)
+        # self.norm2 = nn.BatchNorm2d(self.input_channels//4)
+        # self.norm3 = nn.BatchNorm2d(self.output_channels)
 
+        self.resblock1 = ResnetBlock(self.input_channels, kernel_size=3) #H/8*W/8*outputchannels
+        self.resblock2 = ResnetBlock(self.input_channels, kernel_size=3)
         self.dconv1 = nn.ConvTranspose2d(
             self.input_channels, self.input_channels//2, kernel_size=4, stride=2, padding=1)
-        self.deconv_level2 = nn.ConvTranspose2d(
-            self.input_channels//2, self.input_channels//2, kernel_size=3, stride=1, padding=1)
+        
+        self.resblock3 = ResnetBlock(self.input_channels//2, kernel_size=3) #H/4*W/4*outputchannels//2
+        self.resblock4 = ResnetBlock(self.input_channels//2, kernel_size=3)
         self.dconv2 = nn.ConvTranspose2d(
             self.input_channels//2, self.input_channels//4, kernel_size=4, stride=2, padding=1)
-        self.deconv_level1 = nn.ConvTranspose2d(
-            self.input_channels//4, self.input_channels//4, kernel_size=3, stride=1, padding=1)
+    
+        self.resblock5 = ResnetBlock(self.input_channels//4, kernel_size=3) #H/2*W/2*outputchannels//4
+        self.resblock6 = ResnetBlock(self.input_channels//4, kernel_size=3)
         self.dconv3 = nn.ConvTranspose2d(
-            self.input_channels//4, self.output_channels, kernel_size=8, stride=2, padding=3)
+            self.input_channels//4, self.input_channels//8, kernel_size=4, stride=2, padding=1)
+        
+        self.resblock7 = ResnetBlock(self.input_channels//8, kernel_size=3) #H*W*outputchannels//8
+        self.resblock8 = ResnetBlock(self.input_channels//8, kernel_size=3)
         self.deconv_level0 = nn.ConvTranspose2d(
-            self.output_channels, self.output_channels, kernel_size=3, stride=1, padding=1)
+            self.input_channels//8, self.output_channels, kernel_size=3, stride=1, padding=1)
 
     def forward(self, x, cache):
-        # h/4*w/4*outputput_channels//2
-        f1 = F.relu(self.norm1(self.dconv1(x)))
-        # print("f1", f1.shape)
-        # print("cache[2]", cache[2].shape)
-        f11 = F.relu(self.norm1(self.deconv_level2(f1 + cache[2])))
-        # print("f11", f11.shape)
-        # h/2*w/2*outputput_channels//4
-        f2 = F.relu(self.norm2(self.dconv2(f11)))
-        # print("f2", f2.shape)
-        # print("cache[1]", cache[1].shape)
-        f22 = F.relu(self.norm2(self.deconv_level1(f2 + cache[1])))
-        # # print(f2)
-        # print("f22", f22.shape)
-        f3 = F.relu(self.norm3(self.dconv3(f22)))  # h*w*outputput_channels
-        # print("f3", f3.shape)
-        # print("cache[0]", cache[0].shape)
-        f33 = torch.tanh(self.norm3(self.deconv_level0(f3 + cache[0])))
+        # x: H/8*W/8*output_channels
+        f1 = self.resblock1(x) 
+        f1 = self.resblock2(f1)
+        f1 = F.relu(self.dconv1(f1)) #H/4*W/4*outputput_channels//8
+        
+        f2 = self.resblock3(f1 + cache[2])
+        f2 = self.resblock4(f2)
+        f2 = F.relu(self.dconv2(f2)) #H/2*W/2*outputput_channels//4
+        
+        f3 = self.resblock5(f2 + cache[1])
+        f3 = self.resblock6(f3)
+        f3 = F.relu(self.dconv3(f3)) #H*W*outputput_channels//2
+        
+        
+        f4 = self.resblock7(f3 + cache[0])
+        f4 = self.resblock8(f4)
+        f33 = torch.tanh(self.deconv_level0(f4))
         # # print(f3)
         # print("f33", f33.shape)
         return f33

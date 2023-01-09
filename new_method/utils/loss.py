@@ -84,6 +84,23 @@ def _ssim(img1, img2, window, window_size, channel, size_average=True):
     else:
         return ssim_map.mean(1).mean(1).mean(1)
 
+# perpective loss
+def perspective_loss(x, y):
+    x = x.view(x.size(0), -1)
+    y = y.view(y.size(0), -1)
+    x_mean = torch.mean(x, dim=1, keepdim=True)
+    y_mean = torch.mean(y, dim=1, keepdim=True)
+    x = x - x_mean
+    y = y - y_mean
+    x = x / torch.norm(x, dim=1, keepdim=True)
+    y = y / torch.norm(y, dim=1, keepdim=True)
+    return torch.mean(torch.sum(x * y, dim=1))
+    
+
+
+
+
+
 
 class SSIM(nn.Module):
     def __init__(self, window_size=11, size_average=True):

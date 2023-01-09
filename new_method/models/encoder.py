@@ -113,26 +113,33 @@ class Pyramidal_feature_encoder(nn.Module):
 
         self.output_channels = output_channels
 
-        self.norm1 = nn.BatchNorm2d(self.output_channels//4)
-        self.norm2 = nn.BatchNorm2d(self.output_channels//2)
-        self.norm3 = nn.BatchNorm2d(self.output_channels)
+        # self.norm1 = nn.BatchNorm2d(self.output_channels//4)
+        # self.norm2 = nn.BatchNorm2d(self.output_channels//2)
+        # self.norm3 = nn.BatchNorm2d(self.output_channels)
 
         self.conv_level1 = nn.Conv2d(
-            input_channels, input_channels, kernel_size=3, stride=1, padding=1)
-        self.conv1 = nn.Conv2d(input_channels, self.output_channels //
-                               4, kernel_size=3, stride=2, padding=1)  # H/2,W/2
-        self.conv_level2 = nn.Conv2d(self.output_channels//4, self.output_channels //
-                                     4, kernel_size=3, stride=1, padding=1)
+            input_channels, output_channels//8, kernel_size=3, stride=1, padding=1)
+        self.resblock1 = ResnetBlock(output_channels//8, kernel_size=3)
+        self.resblock2 = ResnetBlock(output_channels//8, kernel_size=3)
+        
+        self.conv1 = nn.Conv2d(output_channels//8, self.output_channels //
+                               4, kernel_size=5, stride=2, padding=2)  # H/2,W/2
+        self.resblock3 = ResnetBlock(output_channels//4, kernel_size=3)
+        self.resblock4 = ResnetBlock(output_channels//4, kernel_size=3)
+        
         self.conv2 = nn.Conv2d(self.output_channels//4, self.output_channels //
-                               2, kernel_size=3, stride=2, padding=1)  # H/4,W/4
-        self.conv_level3 = nn.Conv2d(self.output_channels//2, self.output_channels//2,
-                                     kernel_size=3, stride=1, padding=1)
+                               2, kernel_size=5, stride=2, padding=2)  # H/4,W/4
+        self.resblock5 = ResnetBlock(output_channels//2, kernel_size=3)
+        self.resblock6 = ResnetBlock(output_channels//2, kernel_size=3)
+        
+        
         self.conv3 = nn.Conv2d(self.output_channels//2, self.output_channels,
                                kernel_size=3, stride=2, padding=1)  # H/8 W/8
-
+        self.resblock7 = ResnetBlock(output_channels//2, kernel_size=3)
+        self.resblock8 = ResnetBlock(output_channels//2, kernel_size=3)
         # # output convolution; this can solve mixed memory warning, not know why
         # self.conv2 = nn.Conv2d(128, output_dim, kernel_size=1)
-
+        
         self.dropout = None
         if dropout > 0:
             self.dropout = nn.Dropout2d(p=dropout)
@@ -141,14 +148,20 @@ class Pyramidal_feature_encoder(nn.Module):
 
         # # # print(x.shape)
         f1 = F.relu(self.conv_level1(x), inplace=True)
+        f1 = self.resblock1(f1)
+        f1 = self.resblock2(f1) #H*W*output_channels//8
         # # print("cache:0 ", f1.shape)
         f11 = F.relu(self.conv1(f1), inplace=True)
-        f2 = F.relu(self.conv_level2(f11), inplace=True)
+        f2 = self.resblock3(f11)
+        f2 = self.resblock4(f2) #H/2*W/2*output_channels//4
         # # print("cache:1 ", f2.shape)
         f22 = F.relu(self.conv2(f2), inplace=True)
-        f3 = F.relu(self.conv_level3(f22), inplace=True)
+        f3 = self.resblock5(f22)
+        f3 = self.resblock6(f3) #H/4*W/4*output_channels//2
         # # print("cache:2 ", f3.shape)
         f4 = F.relu(self.conv3(f3), inplace=True)
+        f4 = self.resblock7(f4)
+        f4 = self.resblock8(f4) #H/8*W/8*output_channels
         # # print("output", f4.shape)
         if self.dropout is not None:
             output = self.dropout(f4)
