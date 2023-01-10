@@ -141,8 +141,13 @@ class Blur_decoder(nn.Module):
         # losses and metric
         ##################################################################
         grad_x, grad_y = image_gradient(current_sharp_image)
-        sharp_image2 = torchvision.transforms.functional.equalize(sharp_image)
-        sharp_image2 = sharp_image2 + image_laplacian(sharp_image2)
+        # change type from float to uint8
+        sharp_image2 = 255*(0.5*sharp_image + 0.5)
+        sharp_image2 = torchvision.transforms.functional.equalize(
+            sharp_image2.type(torch.uint8))
+        sharp_image2 = sharp_image2.type(torch.float32)/255
+        sharp_image2 = 2*sharp_image2 - 1
+        # sharp_image2 = sharp_image2 + image_laplacian(sharp_image)
         gt_grad_x, gt_grad_y = image_gradient(sharp_image2)
 
         shape_out = grad_x.shape

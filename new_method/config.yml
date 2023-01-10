@@ -36,6 +36,7 @@ test_augmentations:
 
 # if resume
 weights:
+# C:\Users\Machine Learning GPU\Desktop\fyp\fyp\new_method\visualization\train\train_image_deblurring_without histogram equilization\checkpoints\deblurring_09_01_2023_21_24_48_epoch_17_step_1.pth
 # C:\Users\Machine Learning GPU\Desktop\fyp\fyp\new_method\checkpoints\deblurring_08_01_2023_14_06_38_epoch_19_step_1.pth
 # C:\Users\Machine Learning GPU\Desktop\fyp\fyp\new_method\checkpoints\deblurring_08_01_2023_02_36_10_epoch_20_step_1.pth
 #C:\Users\Machine Learning GPU\Desktop\fyp\fyp\new_method\visualization\train\train_image_deblurring_best_run1\deblurring_05_01_2023_14_33_15_epoch_21_step_1.pth
