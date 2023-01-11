@@ -32,7 +32,7 @@ data_root_test: C:\Users\Machine Learning GPU\Desktop\GOPRO_Large_all(2)
 seq_len_test: [4, 16]
 
 test_augmentations:
-  # resize: [256, 256]
+  resize: [360, 512]
 
 # if resume
 weights:
@@ -102,14 +102,14 @@ hyperparameters:
 # hyperparameters for training
 training_parameters:
   lr: 0.0001
-  batch_size: 4
+  batch_size: 6
   num_epochs: 20
   prob_for_frame_drop: 0
   dropout: 0
 
 # hyperparameters for testing
 testing_parameters:
-  batch_size: 64
+  batch_size: 6
 
 num_workers: 4
 mode: train_image_deblurring

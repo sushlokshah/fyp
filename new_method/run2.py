@@ -274,7 +274,7 @@ def test(model, args, writer, step):
             gen_seq = gen_seq[0].cuda()
             if i % args.display_step_freq == 0:
                 print(psnr(blur_img, gen_seq).item(),
-                        ssim(blur_img, gen_seq).item())
+                      ssim(blur_img, gen_seq).item())
             generated_seq, reconstruction_loss, metric = model(
                 gen_seq, past_img, blur_img, args.mode)
         elif args.mode == "train_forcaster_sequence":
@@ -338,18 +338,17 @@ def test(model, args, writer, step):
                     args.visualization_path, "test", args.mode, str(step), "blur")
                 invTrans = transforms.Compose([transforms.Normalize(mean=[0., 0., 0.],
                                                                     std=[1/0.5, 1/0.5, 1/0.5]),
-                                                transforms.Normalize(mean=[-0.5, -0.5, -0.5],
+                                               transforms.Normalize(mean=[-0.5, -0.5, -0.5],
                                                                     std=[1., 1., 1.]),
-                                                ])
+                                               ])
                 blur_img_cpu = invTrans(
                     blur_img[0].squeeze(0).cpu().detach())
                 torch_utils.save_image(blur_img_cpu, os.path.join(
                     blur_path, "iter_{}_loss_{}_psnr_{}_ssim_{}.png".format(i, reconstruction_loss, metric[0], metric[1])))
 
-
-    total_loss = total_loss / step
-    total_psnr = total_psnr / step
-    total_ssim = total_ssim / step
+    total_loss = total_loss / len(test_loader)
+    total_psnr = total_psnr / len(test_loader)
+    total_ssim = total_ssim / len(test_loader)
     writer.update(model, total_loss, [
                   total_psnr, total_ssim], i, 'test', args.mode)
     # writer.close()
