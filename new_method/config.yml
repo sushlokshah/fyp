@@ -32,10 +32,11 @@ data_root_test: C:\Users\Machine Learning GPU\Desktop\GOPRO_Large_all(2)
 seq_len_test: [4, 16]
 
 test_augmentations:
-  # resize: [256, 256]
+  resize: [360, 512]
 
 # if resume
 weights:
+# C:\Users\Machine Learning GPU\Desktop\fyp\fyp\new_method\visualization\train\train_image_deblurring_without histogram equilization\checkpoints\deblurring_09_01_2023_21_24_48_epoch_17_step_1.pth
 # C:\Users\Machine Learning GPU\Desktop\fyp\fyp\new_method\checkpoints\deblurring_08_01_2023_14_06_38_epoch_19_step_1.pth
 # C:\Users\Machine Learning GPU\Desktop\fyp\fyp\new_method\checkpoints\deblurring_08_01_2023_02_36_10_epoch_20_step_1.pth
 #C:\Users\Machine Learning GPU\Desktop\fyp\fyp\new_method\visualization\train\train_image_deblurring_best_run1\deblurring_05_01_2023_14_33_15_epoch_21_step_1.pth
@@ -102,13 +103,13 @@ hyperparameters:
 training_parameters:
   lr: 0.0001
   batch_size: 6
-  num_epochs: 100
+  num_epochs: 20
   prob_for_frame_drop: 0
   dropout: 0
 
 # hyperparameters for testing
 testing_parameters:
-  batch_size: 64
+  batch_size: 6
 
 num_workers: 4
 mode: train_image_deblurring

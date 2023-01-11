@@ -230,8 +230,7 @@ def train(model, args):
                            '_epoch_' + str(epoch) + '_step_' + str(i) + '.pth')
 
             # test model
-            # if i % args.eval_step_freq == 1:
-            #     test(model, args, writer, epoch*len(train_loader) + i)
+        test(model, args, writer, epoch)
 
     model.save(args.checkpoint_dir + args.name + "final.pth")
     writer.close()
@@ -239,6 +238,8 @@ def train(model, args):
 
 def test(model, args, writer, step):
     model.eval()
+    psnr = PSNR()
+    ssim = SSIM()
     print("Augmentions used...")
     transform = get_transform(args, 'test')
     print("test  augmentation: ", transform)
@@ -256,102 +257,102 @@ def test(model, args, writer, step):
     # total_blur_psnr = 0
     # total_blur_ssim = 0
     for i, data in enumerate(test_loader):
-        if (i < step):
-            # seq_len = data['length'].cuda()
-            torch.cuda.empty_cache()
-            past_img = data['past'].cuda()
-            blur_img = data['blur'].cuda()
-            gen_seq = data['gen_seq']
-            # print("gen_seq shape: ", gen_seq.shape)
-            # print("blur_img shape: ", blur_img.shape)
-            # # for varing length generation
+        # seq_len = data['length'].cuda()
+        torch.cuda.empty_cache()
+        past_img = data['past'].cuda()
+        blur_img = data['blur'].cuda()
+        gen_seq = data['gen_seq']
+        # print("gen_seq shape: ", gen_seq.shape)
+        # print("blur_img shape: ", blur_img.shape)
+        # # for varing length generation
+        # step_size = np.random.randint(3, 6)
+        #
+        # gen_seq = gen_seq[::step_size]
+        # gen_seq = gen_seq.cuda()
+        if args.mode == "train_image_deblurring":
+            gen_seq = gen_seq.permute(1, 0, 2, 3, 4)
+            gen_seq = gen_seq[0].cuda()
+            if i % args.display_step_freq == 0:
+                print(psnr(blur_img, gen_seq).item(),
+                      ssim(blur_img, gen_seq).item())
+            generated_seq, reconstruction_loss, metric = model(
+                gen_seq, past_img, blur_img, args.mode)
+        elif args.mode == "train_forcaster_sequence":
             # step_size = np.random.randint(3, 6)
-            #
+            gen_seq = gen_seq.permute(1, 0, 2, 3, 4)
             # gen_seq = gen_seq[::step_size]
-            # gen_seq = gen_seq.cuda()
-            if args.mode == "train_image_deblurring":
-                gen_seq = gen_seq.permute(1, 0, 2, 3, 4)
-                gen_seq = gen_seq[0].cuda()
-                generated_seq, reconstruction_loss, metric = model(
-                    gen_seq, past_img, blur_img, args.mode)
-            elif args.mode == "train_forcaster_sequence":
-                # step_size = np.random.randint(3, 6)
-                gen_seq = gen_seq.permute(1, 0, 2, 3, 4)
-                # gen_seq = gen_seq[::step_size]
-                gen_seq = gen_seq.cuda()
-                generated_seq, reconstruction_loss, metric = model(
-                    gen_seq, past_img, blur_img, args.mode)
-            elif args.mode == "train_sequence":
-                # step_size = np.random.randint(3, 6)
-                gen_seq = gen_seq.permute(1, 0, 2, 3, 4)
-                # gen_seq = gen_seq[::step_size]
-                gen_seq = gen_seq.cuda()
-                generated_seq, reconstruction_loss, metric = model(
-                    gen_seq, past_img, blur_img, args.mode)
-            elif args.mode == "train_forcaster_image":
-                gen_seq = gen_seq.permute(1, 0, 2, 3, 4)
-                random_index = np.random.randint(0, len(gen_seq))
-                gen_seq = data['gen_seq'][random_index].cuda()
-                generated_seq, reconstruction_loss, metric = model(
-                    gen_seq, past_img, blur_img, args.mode, gen_index=random_index, gen_length=len(gen_seq))
-            elif args.mode == "train_image_pred":
-                gen_seq = gen_seq.permute(1, 0, 2, 3, 4)
-                random_index = np.random.randint(0, len(gen_seq))
-                gen_seq = data['gen_seq'][random_index].cuda()
-                generated_seq, reconstruction_loss, metric = model(
-                    gen_seq, past_img, blur_img, args.mode, gen_index=random_index, gen_length=len(gen_seq))
+            gen_seq = gen_seq.cuda()
+            generated_seq, reconstruction_loss, metric = model(
+                gen_seq, past_img, blur_img, args.mode)
+        elif args.mode == "train_sequence":
+            # step_size = np.random.randint(3, 6)
+            gen_seq = gen_seq.permute(1, 0, 2, 3, 4)
+            # gen_seq = gen_seq[::step_size]
+            gen_seq = gen_seq.cuda()
+            generated_seq, reconstruction_loss, metric = model(
+                gen_seq, past_img, blur_img, args.mode)
+        elif args.mode == "train_forcaster_image":
+            gen_seq = gen_seq.permute(1, 0, 2, 3, 4)
+            random_index = np.random.randint(0, len(gen_seq))
+            gen_seq = data['gen_seq'][random_index].cuda()
+            generated_seq, reconstruction_loss, metric = model(
+                gen_seq, past_img, blur_img, args.mode, gen_index=random_index, gen_length=len(gen_seq))
+        elif args.mode == "train_image_pred":
+            gen_seq = gen_seq.permute(1, 0, 2, 3, 4)
+            random_index = np.random.randint(0, len(gen_seq))
+            gen_seq = data['gen_seq'][random_index].cuda()
+            generated_seq, reconstruction_loss, metric = model(
+                gen_seq, past_img, blur_img, args.mode, gen_index=random_index, gen_length=len(gen_seq))
 
-            total_loss += reconstruction_loss
-            total_psnr += metric[0]
-            total_ssim += metric[1]
+        total_loss += reconstruction_loss
+        total_psnr += metric[0]
+        total_ssim += metric[1]
 
-            # update tensorboard
-            # writer.update(model, reconstruction_loss, metric, i, 'test', args.mode)")
-            # update visualization
-            if i % args.visualize_step_freq == 0:
-                print("visualizing")
-                if args.visualize:
-                    if not os.path.exists(os.path.join(args.visualization_path, "test")):
-                        os.makedirs(os.path.join(
-                            args.visualization_path, "test"))
+        # update tensorboard
+        # writer.update(model, reconstruction_loss, metric, i, 'test', args.mode)")
+        # update visualization
+        if i % args.visualize_step_freq == 0:
+            print("visualizing")
+            if args.visualize:
+                if not os.path.exists(os.path.join(args.visualization_path, "test")):
+                    os.makedirs(os.path.join(
+                        args.visualization_path, "test"))
 
-                    if not os.path.exists(os.path.join(args.visualization_path, "test", args.mode)):
-                        os.makedirs(os.path.join(
-                            args.visualization_path, "test", args.mode))
+                if not os.path.exists(os.path.join(args.visualization_path, "test", args.mode)):
+                    os.makedirs(os.path.join(
+                        args.visualization_path, "test", args.mode))
 
-                    if not os.path.exists(os.path.join(args.visualization_path, "test", args.mode, str(step), "seq")):
-                        os.makedirs(os.path.join(args.visualization_path,
-                                    "test", args.mode, str(step), "seq"))
+                if not os.path.exists(os.path.join(args.visualization_path, "test", args.mode, str(step), "seq")):
+                    os.makedirs(os.path.join(args.visualization_path,
+                                "test", args.mode, str(step), "seq"))
 
-                    if not os.path.exists(os.path.join(args.visualization_path, "test", args.mode, str(step), "blur")):
-                        os.makedirs(os.path.join(args.visualization_path,
-                                    "test", args.mode, str(step), "blur"))
+                if not os.path.exists(os.path.join(args.visualization_path, "test", args.mode, str(step), "blur")):
+                    os.makedirs(os.path.join(args.visualization_path,
+                                "test", args.mode, str(step), "blur"))
 
-                    vis_path = os.path.join(
-                        args.visualization_path, "test", args.mode, str(step), "seq")
-                    visualize(generated_seq[1], generated_seq[0], path=vis_path, name="iter_{}_loss_{}_psnr_{}_ssim_{}.png".format(
-                        i, reconstruction_loss, metric[0], metric[1]))
-                    blur_path = os.path.join(
-                        args.visualization_path, "test", args.mode, str(step), "blur")
-                    invTrans = transforms.Compose([transforms.Normalize(mean=[0., 0., 0.],
-                                                                        std=[1/0.5, 1/0.5, 1/0.5]),
-                                                   transforms.Normalize(mean=[-0.5, -0.5, -0.5],
-                                                                        std=[1., 1., 1.]),
-                                                   ])
-                    blur_img_cpu = invTrans(
-                        blur_img[0].squeeze(0).cpu().detach())
-                    torch_utils.save_image(blur_img_cpu, os.path.join(
-                        blur_path, "iter_{}_loss_{}_psnr_{}_ssim_{}.png".format(i, reconstruction_loss, metric[0], metric[1])))
+                vis_path = os.path.join(
+                    args.visualization_path, "test", args.mode, str(step), "seq")
+                visualize(generated_seq, path=vis_path, name="iter_{}_loss_{}_psnr_{}_ssim_{}.png".format(
+                    i, reconstruction_loss, metric[0], metric[1]))
+                blur_path = os.path.join(
+                    args.visualization_path, "test", args.mode, str(step), "blur")
+                invTrans = transforms.Compose([transforms.Normalize(mean=[0., 0., 0.],
+                                                                    std=[1/0.5, 1/0.5, 1/0.5]),
+                                               transforms.Normalize(mean=[-0.5, -0.5, -0.5],
+                                                                    std=[1., 1., 1.]),
+                                               ])
+                blur_img_cpu = invTrans(
+                    blur_img[0].squeeze(0).cpu().detach())
+                torch_utils.save_image(blur_img_cpu, os.path.join(
+                    blur_path, "iter_{}_loss_{}_psnr_{}_ssim_{}.png".format(i, reconstruction_loss, metric[0], metric[1])))
 
-        else:
-            break
-
-    total_loss = total_loss / step
-    total_psnr = total_psnr / step
-    total_ssim = total_ssim / step
+    total_loss = total_loss / len(test_loader)
+    total_psnr = total_psnr / len(test_loader)
+    total_ssim = total_ssim / len(test_loader)
     writer.update(model, total_loss, [
                   total_psnr, total_ssim], i, 'test', args.mode)
     # writer.close()
+    model.train()
 
 
 def run(args):
