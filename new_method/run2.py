@@ -33,7 +33,7 @@ import os
 import yaml
 import sys
 import torchvision.utils as torch_utils
-
+import wandb
 
 class TensorboardWriter(object):
     def __init__(self, args, model):
@@ -381,6 +381,285 @@ def run(args):
         test(model, args)
 
 
+# wandb sweep
+
+
+def train_sweep(config, args=None):
+    with wandb.init(config=config):
+        print(args)
+        config = wandb.config
+        if args.model == 'variational_gen':
+            model = Variational_Gen(args)
+        elif args.model == 'attention_gen':
+            model = Attention_Gen(args)
+        elif args.model == 'blur_decoder':
+            model = Blur_decoder(args,batch_size = config.batch_size, lr = config.lr,dropout=config.dropout)
+
+        if args.weights:
+            print("weights loaded")
+            model.load(args.weights)
+
+        # print cuda device used for training
+        print("GPU:", torch.cuda.get_device_name(0))
+        model.cuda()
+
+        print("MODEL LOADED SUCCESSFULLY")
+        
+        psnr = PSNR()
+        ssim = SSIM()
+
+        # load data
+        print("Augmentions used...")
+        transform = get_transform(args, 'train')
+        print("training augmentation: ", transform)
+
+        training_dataset = Gopro(args, transform, "train")
+        train_loader = torch.utils.data.DataLoader(
+            training_dataset, batch_size=config.batch_size, shuffle=True, num_workers=args.num_workers, pin_memory=True, drop_last=True)
+
+        print("Augmentions used...")
+        transform = get_transform(args, 'test')
+        print("test  augmentation: ", transform)
+
+        testing_data = Gopro(args, transform, "test")
+        test_loader = torch.utils.data.DataLoader(
+            testing_data, batch_size=args.testing_parameters['batch_size'], shuffle=False, num_workers=args.num_workers, pin_memory=True, drop_last=True)
+
+        
+        print("loaded data and dataloader")
+
+        # writer = TensorboardWriter(args, model)
+        print("TRAINING STARTED")
+
+        for epoch in range(config.epochs):
+            for i, data in enumerate(train_loader):
+                # seq_len = data['length'].cuda()
+                torch.cuda.empty_cache()
+                past_img = data['past'].cuda()
+                blur_img = data['blur'].cuda()
+                gen_seq = data['gen_seq']
+                # print(blur_img.min(), blur_img.max())
+                # # for varing length generation
+                # step_size = np.random.randint(3, 6)
+                # gen_seq = gen_seq[::step_size]
+                # gen_seq = gen_seq.cuda()
+                if args.mode == "train_image_deblurring":
+                    gen_seq = gen_seq.permute(1, 0, 2, 3, 4)
+                    gen_seq = gen_seq[0].cuda()
+                    if i % args.display_step_freq == 0:
+                        print(psnr(blur_img, gen_seq).item(),
+                            ssim(blur_img, gen_seq).item())
+                    generated_seq, reconstruction_loss, metric = model(
+                        gen_seq, past_img, blur_img, args.mode)
+                elif args.mode == "train_forcaster_sequence":
+                    # step_size = np.random.randint(3, 6)
+                    gen_seq = gen_seq.permute(1, 0, 2, 3, 4)
+                    # gen_seq = gen_seq[::step_size]
+                    gen_seq = gen_seq.cuda()
+                    generated_seq, reconstruction_loss, metric = model(
+                        gen_seq, past_img, blur_img, args.mode)
+                elif args.mode == "train_sequence":
+                    # step_size = np.random.randint(3, 6)
+                    gen_seq = gen_seq.permute(1, 0, 2, 3, 4)
+                    # gen_seq = gen_seq[::step_size]
+                    gen_seq = gen_seq.cuda()
+                    generated_seq, reconstruction_loss, metric = model(
+                        gen_seq, past_img, blur_img, args.mode)
+                elif args.mode == "train_forcaster_image":
+                    gen_seq = gen_seq.permute(1, 0, 2, 3, 4)
+                    random_index = np.random.randint(0, len(gen_seq))
+                    gen_seq = data['gen_seq'][random_index].cuda()
+                    generated_seq, reconstruction_loss, metric = model(
+                        gen_seq, past_img, blur_img, args.mode, gen_index=random_index, gen_length=len(gen_seq))
+                elif args.mode == "train_image_pred":
+                    gen_seq = gen_seq.permute(1, 0, 2, 3, 4)
+                    random_index = np.random.randint(0, len(gen_seq))
+                    gen_seq = data['gen_seq'][random_index].cuda()
+                    generated_seq, reconstruction_loss, metric = model(
+                        gen_seq, past_img, blur_img, args.mode, gen_index=random_index, gen_length=len(gen_seq))
+
+                # loss and backprop
+                if args.mode == "train_image_deblurring":
+                    loss = model.update_deblurring(reconstruction_weight= config.reconstruction_weight, laplacian_weight= config.laplacian_weight, grad_weight= config.grad_weight, ssim_weight= config.ssim_weight)
+                elif args.mode == "train_forcaster_sequence" or args.mode == "train_forcaster_image":
+                    loss = model.update_forcaster()
+                else:
+                    loss = model.update_model()
+                    
+                wandb.log({"loss": loss, "reconstruction_loss": reconstruction_loss, "psnr": metric[0], "ssim": metric[1]})
+                # past_img = blur_img
+                # update tensorboard
+                # writer.update(model, reconstruction_loss, metric,
+                #             epoch*len(train_loader) + i, 'train', args.mode)
+
+                # update visualization
+                if i % args.display_step_freq == 0:
+                    print("loss:", loss)
+
+                if i % args.visualize_step_freq == 1:
+                    if args.visualize:
+                        if not os.path.exists(os.path.join(args.visualization_path, "train")):
+                            os.makedirs(os.path.join(
+                                args.visualization_path, "train"))
+
+                        if not os.path.exists(os.path.join(args.visualization_path, "train", args.mode)):
+                            os.makedirs(os.path.join(
+                                args.visualization_path, "train", args.mode))
+
+                        if not os.path.exists(os.path.join(args.visualization_path, "train", args.mode, "seq")):
+                            os.makedirs(os.path.join(
+                                args.visualization_path, "train", args.mode, "seq"))
+
+                        if not os.path.exists(os.path.join(args.visualization_path, "train", args.mode, "blur")):
+                            os.makedirs(os.path.join(
+                                args.visualization_path, "train", args.mode, "blur"))
+                        blur_path = os.path.join(
+                            args.visualization_path, "train", args.mode, "blur")
+                        invTrans = transforms.Compose([transforms.Normalize(mean=[0., 0., 0.],
+                                                                            std=[1/0.5, 1/0.5, 1/0.5]),
+                                                    transforms.Normalize(mean=[-0.5, -0.5, -0.5],
+                                                                            std=[1., 1., 1.]),
+                                                    ])
+                        blur_img_cpu = invTrans(
+                            blur_img[0].squeeze(0).cpu().detach())
+                        vis_path = os.path.join(
+                            args.visualization_path, "train", args.mode, "seq")
+                        # generated_seq[1], generated_seq[0], prior={0: blur_img.detach().cpu()}
+                        visualize(generated_seq, path=vis_path, name="epoch_{}_iter_{}_loss_{}_psnr_{}_ssim_{}.png".format(
+                            epoch, i, reconstruction_loss, metric[0], metric[1]))
+
+                        torch_utils.save_image(blur_img_cpu, os.path.join(blur_path, "epoch_{}_iter_{}_loss_{}_psnr_{}_ssim_{}.png".format(
+                            epoch, i, reconstruction_loss, metric[0], metric[1])))
+
+                if i % args.save_step_freq == 1:
+                    model.save(args.checkpoint_dir + args.name +
+                            '_epoch_' + str(epoch) + '_step_' + str(i) + '.pth')
+
+                # test model
+            test_mse, test_psnr, test_ssim = test_sweep(model, args,test_loader,epoch)
+            wandb.log({"test_mse": test_mse, "test_psnr": test_psnr, "test_ssim": test_ssim, "epoch": epoch})
+        model.save(args.checkpoint_dir + args.name + "final.pth")
+        # writer.close()
+        
+def test_sweep(model,args,test_loader,step):
+    model.eval()
+    psnr = PSNR()
+    ssim = SSIM()
+    
+    # writer = TensorboardWriter(args, None, model)
+    total_loss = 0
+    total_psnr = 0
+    total_ssim = 0
+    # total_blur_psnr = 0
+    # total_blur_ssim = 0
+    for i, data in enumerate(test_loader):
+        # seq_len = data['length'].cuda()
+        torch.cuda.empty_cache()
+        past_img = data['past'].cuda()
+        blur_img = data['blur'].cuda()
+        gen_seq = data['gen_seq']
+        # print("gen_seq shape: ", gen_seq.shape)
+        # print("blur_img shape: ", blur_img.shape)
+        # # for varing length generation
+        # step_size = np.random.randint(3, 6)
+        #
+        # gen_seq = gen_seq[::step_size]
+        # gen_seq = gen_seq.cuda()
+        if args.mode == "train_image_deblurring":
+            gen_seq = gen_seq.permute(1, 0, 2, 3, 4)
+            gen_seq = gen_seq[0].cuda()
+            if i % args.display_step_freq == 0:
+                print(psnr(blur_img, gen_seq).item(),
+                      ssim(blur_img, gen_seq).item())
+            generated_seq, reconstruction_loss, metric = model(
+                gen_seq, past_img, blur_img, args.mode)
+        elif args.mode == "train_forcaster_sequence":
+            # step_size = np.random.randint(3, 6)
+            gen_seq = gen_seq.permute(1, 0, 2, 3, 4)
+            # gen_seq = gen_seq[::step_size]
+            gen_seq = gen_seq.cuda()
+            generated_seq, reconstruction_loss, metric = model(
+                gen_seq, past_img, blur_img, args.mode)
+        elif args.mode == "train_sequence":
+            # step_size = np.random.randint(3, 6)
+            gen_seq = gen_seq.permute(1, 0, 2, 3, 4)
+            # gen_seq = gen_seq[::step_size]
+            gen_seq = gen_seq.cuda()
+            generated_seq, reconstruction_loss, metric = model(
+                gen_seq, past_img, blur_img, args.mode)
+        elif args.mode == "train_forcaster_image":
+            gen_seq = gen_seq.permute(1, 0, 2, 3, 4)
+            random_index = np.random.randint(0, len(gen_seq))
+            gen_seq = data['gen_seq'][random_index].cuda()
+            generated_seq, reconstruction_loss, metric = model(
+                gen_seq, past_img, blur_img, args.mode, gen_index=random_index, gen_length=len(gen_seq))
+        elif args.mode == "train_image_pred":
+            gen_seq = gen_seq.permute(1, 0, 2, 3, 4)
+            random_index = np.random.randint(0, len(gen_seq))
+            gen_seq = data['gen_seq'][random_index].cuda()
+            generated_seq, reconstruction_loss, metric = model(
+                gen_seq, past_img, blur_img, args.mode, gen_index=random_index, gen_length=len(gen_seq))
+
+        total_loss += reconstruction_loss
+        total_psnr += metric[0]
+        total_ssim += metric[1]
+
+        # update tensorboard
+        # writer.update(model, reconstruction_loss, metric, i, 'test', args.mode)")
+        # update visualization
+        if i % args.visualize_step_freq == 0:
+            print("visualizing")
+            if args.visualize:
+                if not os.path.exists(os.path.join(args.visualization_path, "test")):
+                    os.makedirs(os.path.join(
+                        args.visualization_path, "test"))
+
+                if not os.path.exists(os.path.join(args.visualization_path, "test", args.mode)):
+                    os.makedirs(os.path.join(
+                        args.visualization_path, "test", args.mode))
+
+                if not os.path.exists(os.path.join(args.visualization_path, "test", args.mode, str(step), "seq")):
+                    os.makedirs(os.path.join(args.visualization_path,
+                                "test", args.mode, str(step), "seq"))
+
+                if not os.path.exists(os.path.join(args.visualization_path, "test", args.mode, str(step), "blur")):
+                    os.makedirs(os.path.join(args.visualization_path,
+                                "test", args.mode, str(step), "blur"))
+
+                vis_path = os.path.join(
+                    args.visualization_path, "test", args.mode, str(step), "seq")
+                visualize(generated_seq, path=vis_path, name="iter_{}_loss_{}_psnr_{}_ssim_{}.png".format(
+                    i, reconstruction_loss, metric[0], metric[1]))
+                blur_path = os.path.join(
+                    args.visualization_path, "test", args.mode, str(step), "blur")
+                invTrans = transforms.Compose([transforms.Normalize(mean=[0., 0., 0.],
+                                                                    std=[1/0.5, 1/0.5, 1/0.5]),
+                                               transforms.Normalize(mean=[-0.5, -0.5, -0.5],
+                                                                    std=[1., 1., 1.]),
+                                               ])
+                blur_img_cpu = invTrans(
+                    blur_img[0].squeeze(0).cpu().detach())
+                torch_utils.save_image(blur_img_cpu, os.path.join(
+                    blur_path, "iter_{}_loss_{}_psnr_{}_ssim_{}.png".format(i, reconstruction_loss, metric[0], metric[1])))
+
+    total_loss = total_loss / len(test_loader)
+    total_psnr = total_psnr / len(test_loader)
+    total_ssim = total_ssim / len(test_loader)
+    
+    model.train()
+    return total_loss, total_psnr, total_ssim
+
+
+def sweep(args):
+    config = args.hyperparameters
+    # have to define sweep config
+    sweep_config = config
+    wandb.login()
+    # setup wandb for sweep
+    sweep_id = wandb.sweep(sweep_config, project="pytorch-sweeps-demo")
+    wandb.agent(sweep_id, partial(train_sweep,args = args), count=args.count)
+    
+
 if __name__ == '__main__':
     # set the seed
     torch.manual_seed(12)
@@ -519,4 +798,4 @@ if __name__ == '__main__':
     if not args.sweep:
         run(args)
     else:
-        NotImplementedError
+        sweep(args)

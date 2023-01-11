@@ -314,7 +314,7 @@ class Blur_decoder(nn.Module):
 
         return [generated_sequence, gt_sequence], self.reconstruction_loss.item(), [self.psnr_metric.item(), self.ssim_metric.item()]
 
-    def update_deblurring(self):
+    def update_deblurring(self, reconstruction_weight = 1, laplacian_weight = 0.2, grad_weight = 0.2, ssim_weight = 1):
         self.sharp_encoder_optimizer.zero_grad()
         self.decoder_optimizer.zero_grad()
         self.feature_predictor_optimizer.zero_grad()
@@ -323,10 +323,10 @@ class Blur_decoder(nn.Module):
         # loss = self.deblurring_reconstruction_loss + 1 * \
         #     torch.exp(-0.05*self.deblurring_psnr) + 1 * \
         #     torch.abs(1-self.deblurring_ssim) + \
-        loss = self.deblurring_reconstruction_loss + \
-            0.2*self.laplacian_loss + \
-            torch.abs(1-self.deblurring_ssim) + \
-            0.2*self.grad_x_loss + 0.2*self.grad_y_loss
+        loss = reconstruction_weight*self.deblurring_reconstruction_loss + \
+            laplacian_weight*self.laplacian_loss + \
+            ssim_weight*torch.abs(1-self.deblurring_ssim) + \
+            grad_weight*self.grad_x_loss + grad_weight*self.grad_y_loss
 
         loss.backward(retain_graph=True)
 
