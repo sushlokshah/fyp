@@ -113,15 +113,21 @@ class Blur_decoder(nn.Module):
 
     def init_optimizer(self):
         self.sharp_encoder_optimizer = self.optimizer(self.sharp_encoder.parameters(
-        ), lr=self.lr, weight_decay=self.args.optimizer["weight_decay"], eps=float(self.args.optimizer["eps"]))
-        # self.refinement_max_scale_optimizer = self.optimizer(self.refinement_max_scale.parameters(), lr=self.lr, weight_decay=self.args.optimizer["weight_decay"], eps=float(self.args.optimizer["eps"]))
-        # self.blur_encoder_optimizer = self.optimizer(self.blur_encoder.parameters(), lr=self.lr, weight_decay=self.args.optimizer["weight_decay"], eps=float(self.args.optimizer["eps"]))
-        # self.feature_forcasting_optimizer = self.optimizer(self.feature_forcasting.parameters(), lr=self.lr, weight_decay=self.args.optimizer["weight_decay"], eps=float(self.args.optimizer["eps"]))
+            ), lr=self.lr, weight_decay=self.args.optimizer["weight_decay"], eps=float(self.args.optimizer["eps"]))
         self.decoder_optimizer = self.optimizer(self.decoder.parameters(
-        ), lr=self.lr, weight_decay=self.args.optimizer["weight_decay"], eps=float(self.args.optimizer["eps"]))
+            ), lr=self.lr, weight_decay=self.args.optimizer["weight_decay"], eps=float(self.args.optimizer["eps"]))
         self.feature_predictor_optimizer = self.optimizer(self.feature_predictor.parameters(
-        ), lr=self.lr, weight_decay=self.args.optimizer["weight_decay"], eps=float(self.args.optimizer["eps"]))
+            ), lr=self.lr, weight_decay=self.args.optimizer["weight_decay"], eps=float(self.args.optimizer["eps"]))
+        
+        self.sharp_encoder_scheduler = optim.lr_scheduler.ExponentialLR(self.sharp_encoder_optimizer, gamma=self.args.scheduler["lr_decay"])
+        self.decoder_scheduler = optim.lr_scheduler.ExponentialLR(self.decoder_optimizer, gamma=self.args.scheduler["lr_decay"])
+        self.feature_predictor_scheduler = optim.lr_scheduler.ExponentialLR(self.feature_predictor_optimizer, gamma=self.args.scheduler["lr_decay"])
 
+    def scheduler_step(self):
+        self.sharp_encoder_scheduler.step()
+        self.decoder_scheduler.step()
+        self.feature_predictor_scheduler.step()
+    
     def train_image_deblurring(self, past_blur_image, current_blur_image, sharp_image):
 
         #################################################################
@@ -218,6 +224,7 @@ class Blur_decoder(nn.Module):
         self.ssim_metric = 0
         self.grad_x_loss = 0
         self.grad_y_loss = 0
+        self.laplacian_loss = 0
         generated_sequence = {}
         gt_sequence = {}
         gen_length = len(sharp_images)
@@ -247,9 +254,59 @@ class Blur_decoder(nn.Module):
             # losses and metric
             ######################################################################
             grad_x, grad_y = image_gradient(current_sharp_image)
-            gt_grad_x, gt_grad_y = image_gradient(sharp_images[i])
+            # change type from float to uint8
+            sharp_image2 = 255*(0.5*sharp_images[i] + 0.5)
+            sharp_image2 = torchvision.transforms.functional.equalize(
+                sharp_image2.type(torch.uint8))
+            sharp_image2 = sharp_image2.type(torch.float32)/255
+            sharp_image2 = 2*sharp_image2 - 1
+            # sharp_image2 = sharp_image2 + image_laplacian(sharp_image)
+            gt_grad_x, gt_grad_y = image_gradient(sharp_image2)
+
+            shape_out = grad_x.shape
+            threshold = 0.1
+            grad_x = grad_x.squeeze(1).view(current_sharp_image.size(0), -1)
+            grad_y = grad_y.squeeze(1).view(current_sharp_image.size(0), -1)
+
+            grad_x = torch.where(grad_x > threshold, 0.99*torch.ones_like(
+                grad_x), grad_x + 0.0001*torch.ones_like(grad_x))
+            grad_y = torch.where(grad_y > threshold, 0.99*torch.ones_like(
+                grad_y), grad_y + 0.0001*torch.ones_like(grad_y))
+
+            gt_grad_x = gt_grad_x.squeeze(1).view(current_sharp_image.size(0), -1)
+            gt_grad_y = gt_grad_y.squeeze(1).view(current_sharp_image.size(0), -1)
+
+            # apply thresholding over gradients gt
+            gt_grad_x = torch.where(gt_grad_x > threshold, torch.ones_like(
+                gt_grad_x), torch.zeros_like(gt_grad_x))
+            gt_grad_y = torch.where(gt_grad_y > threshold, torch.ones_like(
+                gt_grad_y), torch.zeros_like(gt_grad_y))
             self.grad_x_loss += self.grad_x_mse_criterion(grad_x, gt_grad_x)
             self.grad_y_loss += self.grad_y_mse_criterion(grad_y, gt_grad_y)
+            
+            laplacian = image_laplacian(current_sharp_image)
+            gt_laplacian = image_laplacian(sharp_image2)
+
+            laplacian = laplacian.squeeze(1).view(current_sharp_image.size(0), -1)
+
+            laplacian = torch.where(laplacian > threshold, 0.99*torch.ones_like(
+                laplacian), laplacian + 0.0001*torch.ones_like(laplacian))
+
+            gt_laplacian = gt_laplacian.squeeze(
+                1).view(current_sharp_image.size(0), -1)
+
+            gt_laplacian = torch.where(gt_laplacian > threshold, torch.ones_like(
+                gt_laplacian), torch.zeros_like(gt_laplacian))
+
+            edge_map = grad_x + grad_y + laplacian
+            edge_map_gt = gt_grad_x + gt_grad_y + gt_laplacian
+            # print(edge_map_gt.shape)
+            edge_map = edge_map.unsqueeze(1).reshape(shape_out)
+            edge_map_gt = edge_map_gt.unsqueeze(1).reshape(shape_out)
+
+            self.laplacian_loss += self.laplacian_mse_criterion(
+                laplacian, gt_laplacian)
+            
             self.reconstruction_loss += self.mse_criterion(
                 current_sharp_image, sharp_images[i])
             self.ssim_metric += self.ssim_criterion(
@@ -260,6 +317,7 @@ class Blur_decoder(nn.Module):
 
         self.grad_x_loss = self.grad_x_loss/gen_length
         self.grad_y_loss = self.grad_y_loss/gen_length
+        self.laplacian_loss = self.laplacian_loss/gen_length
         self.reconstruction_loss = self.reconstruction_loss/gen_length
         self.psnr_metric = self.psnr_metric/gen_length
         self.ssim_metric = self.ssim_metric/gen_length
@@ -277,6 +335,7 @@ class Blur_decoder(nn.Module):
         self.ssim_metric = 0
         self.grad_x_loss = 0
         self.grad_y_loss = 0
+        self.laplacian_loss = 0
         generated_sequence = {}
         gt_sequence = {}
         gt_sequence[gen_index] = sharp_images[gen_index].detach().cpu()
@@ -301,9 +360,59 @@ class Blur_decoder(nn.Module):
         # losses and metric
         ######################################################################
         grad_x, grad_y = image_gradient(current_sharp_image)
-        gt_grad_x, gt_grad_y = image_gradient(sharp_images[gen_index])
+        # change type from float to uint8
+        sharp_image2 = 255*(0.5*sharp_images[gen_index] + 0.5)
+        sharp_image2 = torchvision.transforms.functional.equalize(
+            sharp_image2.type(torch.uint8))
+        sharp_image2 = sharp_image2.type(torch.float32)/255
+        sharp_image2 = 2*sharp_image2 - 1
+        # sharp_image2 = sharp_image2 + image_laplacian(sharp_image)
+        gt_grad_x, gt_grad_y = image_gradient(sharp_image2)
+
+        shape_out = grad_x.shape
+        threshold = 0.1
+        grad_x = grad_x.squeeze(1).view(current_sharp_image.size(0), -1)
+        grad_y = grad_y.squeeze(1).view(current_sharp_image.size(0), -1)
+
+        grad_x = torch.where(grad_x > threshold, 0.99*torch.ones_like(
+            grad_x), grad_x + 0.0001*torch.ones_like(grad_x))
+        grad_y = torch.where(grad_y > threshold, 0.99*torch.ones_like(
+            grad_y), grad_y + 0.0001*torch.ones_like(grad_y))
+
+        gt_grad_x = gt_grad_x.squeeze(1).view(current_sharp_image.size(0), -1)
+        gt_grad_y = gt_grad_y.squeeze(1).view(current_sharp_image.size(0), -1)
+
+        # apply thresholding over gradients gt
+        gt_grad_x = torch.where(gt_grad_x > threshold, torch.ones_like(
+            gt_grad_x), torch.zeros_like(gt_grad_x))
+        gt_grad_y = torch.where(gt_grad_y > threshold, torch.ones_like(
+            gt_grad_y), torch.zeros_like(gt_grad_y))
         self.grad_x_loss += self.grad_x_mse_criterion(grad_x, gt_grad_x)
         self.grad_y_loss += self.grad_y_mse_criterion(grad_y, gt_grad_y)
+        
+        laplacian = image_laplacian(current_sharp_image)
+        gt_laplacian = image_laplacian(sharp_image2)
+
+        laplacian = laplacian.squeeze(1).view(current_sharp_image.size(0), -1)
+
+        laplacian = torch.where(laplacian > threshold, 0.99*torch.ones_like(
+            laplacian), laplacian + 0.0001*torch.ones_like(laplacian))
+
+        gt_laplacian = gt_laplacian.squeeze(
+            1).view(current_sharp_image.size(0), -1)
+
+        gt_laplacian = torch.where(gt_laplacian > threshold, torch.ones_like(
+            gt_laplacian), torch.zeros_like(gt_laplacian))
+
+        edge_map = grad_x + grad_y + laplacian
+        edge_map_gt = gt_grad_x + gt_grad_y + gt_laplacian
+        # print(edge_map_gt.shape)
+        edge_map = edge_map.unsqueeze(1).reshape(shape_out)
+        edge_map_gt = edge_map_gt.unsqueeze(1).reshape(shape_out)
+
+        self.laplacian_loss = self.laplacian_mse_criterion(
+            laplacian, gt_laplacian)
+        
         self.reconstruction_loss += self.mse_criterion(
             current_sharp_image, sharp_images[gen_index])
         self.ssim_metric += self.ssim_criterion(
@@ -318,11 +427,7 @@ class Blur_decoder(nn.Module):
         self.sharp_encoder_optimizer.zero_grad()
         self.decoder_optimizer.zero_grad()
         self.feature_predictor_optimizer.zero_grad()
-        # self.refinement_max_scale_optimizer.zero_grad()
-
-        # loss = self.deblurring_reconstruction_loss + 1 * \
-        #     torch.exp(-0.05*self.deblurring_psnr) + 1 * \
-        #     torch.abs(1-self.deblurring_ssim) + \
+        
         loss = reconstruction_weight*self.deblurring_reconstruction_loss + \
             laplacian_weight*self.laplacian_loss + \
             ssim_weight*torch.abs(1-self.deblurring_ssim) + \
@@ -332,32 +437,35 @@ class Blur_decoder(nn.Module):
 
         self.sharp_encoder_optimizer.step()
         self.decoder_optimizer.step()
-        # self.refinement_max_scale_optimizer.step()
-
+        
         return loss.item()
 
-    def update_forcaster(self):
+    def update_forcaster(self, reconstruction_weight = 1, laplacian_weight = 0.2, grad_weight = 0.2, ssim_weight = 1):
         self.sharp_encoder_optimizer.zero_grad()
         self.decoder_optimizer.zero_grad()
         self.feature_predictor_optimizer.zero_grad()
         # self.refinement_max_scale_optimizer.zero_grad()
 
-        loss = 0.4*self.reconstruction_loss + 0.4 * \
-            torch.exp(-0.05*self.psnr_metric) + 0.2 * \
-            torch.abs(1-self.ssim_metric) + self.grad_x_loss + self.grad_y_loss
+        loss = reconstruction_weight*self.deblurring_reconstruction_loss + \
+            laplacian_weight*self.laplacian_loss + \
+            ssim_weight*torch.abs(1-self.deblurring_ssim) + \
+            grad_weight*self.grad_x_loss + grad_weight*self.grad_y_loss
+            
         loss.backward(retain_graph=True)
 
         self.feature_predictor_optimizer.step()
 
-    def update_model(self):
+    def update_model(self, reconstruction_weight = 1, laplacian_weight = 0.2, grad_weight = 0.2, ssim_weight = 1):
         self.sharp_encoder_optimizer.zero_grad()
         self.decoder_optimizer.zero_grad()
         self.feature_predictor_optimizer.zero_grad()
         # self.refinement_max_scale_optimizer.zero_grad()
 
-        loss = 0.4*self.reconstruction_loss + 0.4 * \
-            torch.exp(-0.05*self.psnr_metric) + 0.2 * \
-            torch.abs(1-self.ssim_metric) + self.grad_x_loss + self.grad_y_loss
+        loss = reconstruction_weight*self.deblurring_reconstruction_loss + \
+            laplacian_weight*self.laplacian_loss + \
+            ssim_weight*torch.abs(1-self.deblurring_ssim) + \
+            grad_weight*self.grad_x_loss + grad_weight*self.grad_y_loss
+            
         loss.backward(retain_graph=True)
 
         self.sharp_encoder_optimizer.step()

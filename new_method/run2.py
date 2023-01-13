@@ -539,6 +539,7 @@ def train_sweep(config=None, args=None):
                                '_epoch_' + str(epoch) + '_step_' + str(i) + '.pth')
 
                 # test model
+            model.scheduler_step()
             test_mse, test_psnr, test_ssim = test_sweep(
                 model, args, test_loader, epoch)
             wandb.log({"test_mse": test_mse, "test_psnr": test_psnr,
