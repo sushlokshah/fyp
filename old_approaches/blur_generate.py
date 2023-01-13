@@ -3,17 +3,19 @@ import os
 import torch
 from PIL import Image
 
+
+# set number of merge frames
+merge_frames = 8
+step_size = 8
+
+
 # get argument dataset path
 if __name__ == '__main__':
 
-    # set number of merge frames
-    merge_frames = 8
-    step_size = 5
-    show_one = True
-
-    data_root = 'C:\\Users\\Machine Learning GPU\Desktop\\GOPRO_Large_all(2)\\test'
-    saving = 'C:\\Users\\Machine Learning GPU\\Desktop\\created'
+    data_root = 'C:\\Users\\Machine Learning GPU\Desktop\\GOPRO_Large_all(2)\\test_all'
+    saving = 'C:\\Users\\Machine Learning GPU\\Desktop\\created_blur_test_dataset_gopro'
     # list all sequence folders in train dir
+    print(os.listdir(data_root))
     for sequences in os.listdir(data_root):
         seq_root = os.path.join(data_root, sequences)
         img_list = os.listdir(seq_root)
@@ -36,10 +38,3 @@ if __name__ == '__main__':
                 os.mkdir(os.path.join(saving, sequences))
             img_merge.save(os.path.join(saving, sequences,
                            'merge_{}_{}.png'.format(i, i+merge_frames)))
-
-            # if show_one:
-            #     print(img_merge.min(), img_merge.max(), img_merge.mean())
-            #     img_merge = Image.fromarray(numpy.uint8(img_merge))
-            #     img_merge.show()
-
-            #     show_one = False
