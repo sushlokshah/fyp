@@ -35,6 +35,7 @@ import sys
 import torchvision.utils as torch_utils
 import wandb
 
+
 class TensorboardWriter(object):
     def __init__(self, args, model):
         self.args = args
@@ -384,7 +385,7 @@ def run(args):
 # wandb sweep
 
 
-def train_sweep(config, args=None):
+def train_sweep(config=None, args=None):
     with wandb.init(config=config):
         print(args)
         config = wandb.config
@@ -393,7 +394,8 @@ def train_sweep(config, args=None):
         elif args.model == 'attention_gen':
             model = Attention_Gen(args)
         elif args.model == 'blur_decoder':
-            model = Blur_decoder(args,batch_size = config.batch_size, lr = config.lr,dropout=config.dropout)
+            model = Blur_decoder(
+                args, batch_size=config.batch_size, lr=config.lr, dropout=config.dropout)
 
         if args.weights:
             print("weights loaded")
@@ -404,7 +406,7 @@ def train_sweep(config, args=None):
         model.cuda()
 
         print("MODEL LOADED SUCCESSFULLY")
-        
+
         psnr = PSNR()
         ssim = SSIM()
 
@@ -425,7 +427,6 @@ def train_sweep(config, args=None):
         test_loader = torch.utils.data.DataLoader(
             testing_data, batch_size=args.testing_parameters['batch_size'], shuffle=False, num_workers=args.num_workers, pin_memory=True, drop_last=True)
 
-        
         print("loaded data and dataloader")
 
         # writer = TensorboardWriter(args, model)
@@ -448,7 +449,7 @@ def train_sweep(config, args=None):
                     gen_seq = gen_seq[0].cuda()
                     if i % args.display_step_freq == 0:
                         print(psnr(blur_img, gen_seq).item(),
-                            ssim(blur_img, gen_seq).item())
+                              ssim(blur_img, gen_seq).item())
                     generated_seq, reconstruction_loss, metric = model(
                         gen_seq, past_img, blur_img, args.mode)
                 elif args.mode == "train_forcaster_sequence":
@@ -480,13 +481,15 @@ def train_sweep(config, args=None):
 
                 # loss and backprop
                 if args.mode == "train_image_deblurring":
-                    loss = model.update_deblurring(reconstruction_weight= config.reconstruction_weight, laplacian_weight= config.laplacian_weight, grad_weight= config.grad_weight, ssim_weight= config.ssim_weight)
+                    loss = model.update_deblurring(reconstruction_weight=config.reconstruction_weight,
+                                                   laplacian_weight=config.laplacian_weight, grad_weight=config.grad_weight, ssim_weight=config.ssim_weight)
                 elif args.mode == "train_forcaster_sequence" or args.mode == "train_forcaster_image":
                     loss = model.update_forcaster()
                 else:
                     loss = model.update_model()
-                    
-                wandb.log({"loss": loss, "reconstruction_loss": reconstruction_loss, "psnr": metric[0], "ssim": metric[1]})
+
+                wandb.log({"loss": loss, "reconstruction_loss": reconstruction_loss,
+                          "psnr": metric[0], "ssim": metric[1]})
                 # past_img = blur_img
                 # update tensorboard
                 # writer.update(model, reconstruction_loss, metric,
@@ -517,9 +520,9 @@ def train_sweep(config, args=None):
                             args.visualization_path, "train", args.mode, "blur")
                         invTrans = transforms.Compose([transforms.Normalize(mean=[0., 0., 0.],
                                                                             std=[1/0.5, 1/0.5, 1/0.5]),
-                                                    transforms.Normalize(mean=[-0.5, -0.5, -0.5],
+                                                       transforms.Normalize(mean=[-0.5, -0.5, -0.5],
                                                                             std=[1., 1., 1.]),
-                                                    ])
+                                                       ])
                         blur_img_cpu = invTrans(
                             blur_img[0].squeeze(0).cpu().detach())
                         vis_path = os.path.join(
@@ -533,19 +536,22 @@ def train_sweep(config, args=None):
 
                 if i % args.save_step_freq == 1:
                     model.save(args.checkpoint_dir + args.name +
-                            '_epoch_' + str(epoch) + '_step_' + str(i) + '.pth')
+                               '_epoch_' + str(epoch) + '_step_' + str(i) + '.pth')
 
                 # test model
-            test_mse, test_psnr, test_ssim = test_sweep(model, args,test_loader,epoch)
-            wandb.log({"test_mse": test_mse, "test_psnr": test_psnr, "test_ssim": test_ssim, "epoch": epoch})
+            test_mse, test_psnr, test_ssim = test_sweep(
+                model, args, test_loader, epoch)
+            wandb.log({"test_mse": test_mse, "test_psnr": test_psnr,
+                      "test_ssim": test_ssim, "epoch": epoch})
         model.save(args.checkpoint_dir + args.name + "final.pth")
         # writer.close()
-        
-def test_sweep(model,args,test_loader,step):
+
+
+def test_sweep(model, args, test_loader, step):
     model.eval()
     psnr = PSNR()
     ssim = SSIM()
-    
+
     # writer = TensorboardWriter(args, None, model)
     total_loss = 0
     total_psnr = 0
@@ -645,20 +651,19 @@ def test_sweep(model,args,test_loader,step):
     total_loss = total_loss / len(test_loader)
     total_psnr = total_psnr / len(test_loader)
     total_ssim = total_ssim / len(test_loader)
-    
+
     model.train()
     return total_loss, total_psnr, total_ssim
 
 
 def sweep(args):
-    config = args.hyperparameters
-    # have to define sweep config
-    sweep_config = config
-    wandb.login()
+    config = args.sweep_parameters
+    print(config)
     # setup wandb for sweep
-    sweep_id = wandb.sweep(sweep_config, project="pytorch-sweeps-demo")
-    wandb.agent(sweep_id, partial(train_sweep,args = args), count=args.count)
-    
+    sweep_id = wandb.sweep(config, project="video_generation")
+    wandb.agent(sweep_id, partial(train_sweep, args=args),
+                count=config["num_sweeps"])
+
 
 if __name__ == '__main__':
     # set the seed

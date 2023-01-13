@@ -1,32 +1,34 @@
-# basic inforamtion about experiment
+##########################################################################
+#basic inforamtion about experiment
+##########################################################################
 config: C:\Users\Machine Learning GPU\Desktop\fyp\fyp\new_method\config.yml
 name: deblurring
 
+##########################################################################
 #update and display frequency
+##########################################################################
 display_step_freq: 5
 save_step_freq: 1000
 visualize_step_freq: 10
 eval_step_freq: 100
 
+##########################################################################
 #about training and testing
+##########################################################################
 evaluate: false
 sweep: true
 test: false
 train: false
 
-# data path
+##########################################################################
+# data
+##########################################################################
 dataset: gopro
 data_root_train: C:\Users\Machine Learning GPU\Desktop\GOPRO_Large_all(2)
 seq_len_train: [4, 16]
 
 training_augmentations:
   resize: [360, 512]
-  # color_jitter: [0.4, 0.4, 0.4, 0.1]
-  # random_flip: true
-  # random_rotation: 10
-  # random_affine: [0, 0, 0, 0.1]
-  # random_perspective: [0.1, 0.1, 0.1, 0.1]
-  # random_erasing: [0.5, 0.5, 0.5, 0.5, 0.5]
 
 data_root_test: C:\Users\Machine Learning GPU\Desktop\GOPRO_Large_all(2)
 seq_len_test: [4, 16]
@@ -34,63 +36,82 @@ seq_len_test: [4, 16]
 test_augmentations:
   resize: [360, 512]
 
-# if resume
+##########################################################################
+# resume
+##########################################################################
 weights:
-# C:\Users\Machine Learning GPU\Desktop\fyp\fyp\new_method\visualization\train\train_image_deblurring_without histogram equilization\checkpoints\deblurring_09_01_2023_21_24_48_epoch_17_step_1.pth
-# C:\Users\Machine Learning GPU\Desktop\fyp\fyp\new_method\checkpoints\deblurring_08_01_2023_14_06_38_epoch_19_step_1.pth
-# C:\Users\Machine Learning GPU\Desktop\fyp\fyp\new_method\checkpoints\deblurring_08_01_2023_02_36_10_epoch_20_step_1.pth
-#C:\Users\Machine Learning GPU\Desktop\fyp\fyp\new_method\visualization\train\train_image_deblurring_best_run1\deblurring_05_01_2023_14_33_15_epoch_21_step_1.pth
-#C:\Users\Machine Learning GPU\Desktop\fyp\fyp\new_method\visualization\test_sub_no_single_image\deblurring_epoch_13_step_0.pth
-#C:\Users\Machine Learning GPU\Desktop\fyp\fyp\new_method\checkpoints\deblurring_epoch_12_step_0.pth
 
 checkpoint_dir: C:\Users\Machine Learning GPU\Desktop\fyp\fyp\new_method\checkpoints\
 run_dir: C:\Users\Machine Learning GPU\Desktop\fyp\fyp\new_method\runs\
+
+##########################################################################
 # data to tensorboard
+##########################################################################
 update_sweep_data: false
 update_training_loss: true
 update_validation_loss: true
 update_weights: true
 
-# if visualize
+##########################################################################
+# visualize
+##########################################################################
 visualize: true
 visualization_path: C:\Users\Machine Learning GPU\Desktop\fyp\fyp\new_method\visualization\
 
+##########################################################################
 #optimizer and optimizer specific parameters
+##########################################################################
 optimizer:
   optimizer_name: AdamW
   weight_decay: 0.01
   eps: 1e-08
 
-#learning rate scheduler and scheduler specific parameters
 if_scheduler: false
 scheduler: StepLR
 
-# hyperparameters specification for hyperparameter sweep
-num_sweeps: 10
-gpus_per_trial: 1
+##########################################################################
+# hyperparameter sweep wandb format
+##########################################################################
+sweep_parameters:
+  name: deblurring
+  num_sweeps: 10
+  gpus_per_trial: 1
+  program: train.py
+  method: bayes
+  metric:
+    goal: minimize
+    name: test_mse
+  parameters:
+    lr:
+      min: 0.0001
+      max: 0.001
+    batch_size:
+      min: 2
+      max: 8
+      # step: 2
+    epochs:
+      min: 1
+      max: 100
+      # step: 2
+    dropout:
+      min: 0.0
+      max: 0.8
+    reconstruction_weight:
+      min: 0.1
+      max: 1.2
+    laplacian_weight:
+      min: 0.1
+      max: 1.2
+    grad_weight:
+      min: 0.1
+      max: 1.2
+    ssim_weight:
+      min: 0.1
+      max: 1.2
 
-hyperparameters:
-  learning_rate:
-    type: float
-    min: 0.00001
-    max: 0.1
-  batch_size:
-    type: int
-    min: 2
-    max: 8
-    step: 2
-  num_epochs:
-    type: int
-    min: 10
-    max: 100
-    step: 10
-  dropout:
-    type: float
-    min: 0.1
-    max: 0.9
-  
-
-# hyperparameters for training
+##########################################################################
+# training
+##########################################################################
 training_parameters:
   lr: 0.0001
   batch_size: 6
@@ -98,10 +119,15 @@ training_parameters:
   prob_for_frame_drop: 0
   dropout: 0
 
-# hyperparameters for testing
+##########################################################################
+# testing
+##########################################################################
 testing_parameters:
   batch_size: 6
 
+##########################################################################
+# model and type of training
+##########################################################################
 num_workers: 4
 mode: train_image_deblurring
 # model parameters
